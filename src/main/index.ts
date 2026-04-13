@@ -30,6 +30,10 @@ function createMainWindow(): BrowserWindow {
     win.show()
   })
 
+  win.on('closed', () => {
+    overlayWindow = null
+  })
+
   win.on('close', (event) => {
     if (tray) {
       event.preventDefault()
@@ -60,6 +64,7 @@ function createOverlayWindow(): BrowserWindow {
     frame: false,
     transparent: true,
     alwaysOnTop: true,
+    movable: true,
     resizable: false,
     skipTaskbar: true,
     show: false,
@@ -74,9 +79,9 @@ function createOverlayWindow(): BrowserWindow {
   })
 
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    win.loadURL(process.env['ELECTRON_RENDERER_URL'] + '/overlay.html')
+    win.loadURL(`${process.env['ELECTRON_RENDERER_URL']}#/overlay`)
   } else {
-    win.loadFile(join(__dirname, '../renderer/overlay.html'))
+    win.loadFile(join(__dirname, '../renderer/index.html'), { hash: '/overlay' })
   }
 
   return win
@@ -180,6 +185,10 @@ app.whenReady().then(() => {
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       mainWindow = createMainWindow()
+    }
+
+    if (!overlayWindow || overlayWindow.isDestroyed()) {
+      overlayWindow = createOverlayWindow()
     }
   })
 })
