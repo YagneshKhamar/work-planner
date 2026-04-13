@@ -297,7 +297,7 @@ export function registerTasksHandlers(): void {
         completed: completedTasks.map((t) => ({ title: t.title, proof_type: t.proof_type })),
         missed: pendingTasks.map((t) => ({ title: t.title })),
         flags: [],
-        history: []
+        history: [],
       })
     } catch {
       feedback = 'Feedback unavailable.'
@@ -306,12 +306,14 @@ export function registerTasksHandlers(): void {
     // Upsert day_logs
     const existing = db.prepare(`SELECT id FROM day_logs WHERE date = ?`).get(date)
     if (existing) {
-      db.prepare(`
+      db.prepare(
+        `
         UPDATE day_logs SET
           total_weight = ?, completed_weight = ?, execution_score = ?,
           ai_feedback = ?, tasks_completed = ?, tasks_missed = ?
         WHERE date = ?
-      `).run(
+      `
+      ).run(
         totalWeight,
         completedWeight,
         score,
