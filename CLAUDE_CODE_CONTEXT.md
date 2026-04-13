@@ -19,7 +19,8 @@ Not a task manager. An execution enforcement system — forces daily planning, p
 ```
 src/
 ├── main/
-│   ├── index.ts              — app entry, windows, tray, IPC registration, hourly notifications
+│   ├── index.ts              — app entry, windows, tray, IPC registration, hourly notifications,
+│   │                           overlay lifecycle (show on main hide, hide on main show)
 │   ├── db/
 │   │   ├── database.ts       — SQLite connection, WAL mode, FK enabled
 │   │   └── migrations/001_initial.ts — all table definitions
@@ -32,7 +33,7 @@ src/
 │       │                       tasks:drop, tasks:get-carryover-count, tasks:end-of-day
 │       ├── ai.ipc.ts         — ai:validate-goal, ai:generate-subgoals, ai:generate-daily-tasks,
 │       │                       ai:end-of-day-feedback, ai:suggest-goal-fix
-│       ├── reports.ipc.ts    — detectBehaviorPatterns()
+│       ├── reports.ipc.ts    — reports:week, detectBehaviorPatterns()
 │       └── planning.ipc.ts   — EMPTY, not implemented
 ├── preload/
 │   ├── index.ts              — contextBridge exposeInMainWorld('api', {...})
@@ -48,13 +49,13 @@ src/
 │       │   ├── main.css      — Tailwind import + .drag-region + .no-drag + capture-mode CSS
 │       │   └── base.css      — CSS variables
 │       ├── overlay/
-│       │   └── Overlay.tsx   — always-on-top overlay UI
+│       │   └── Overlay.tsx   — always-on-top overlay UI (active path)
 │       └── pages/
 │           ├── Setup.tsx         — DONE
 │           ├── Goals.tsx         — DONE
-│           ├── Today.tsx         — DONE
+│           ├── Today.tsx         — DONE (includes End Day button + result card)
 │           ├── DailyReport.tsx   — DONE
-│           ├── WeeklyReport.tsx  — PARTIAL (UI exists, needs day_logs data)
+│           ├── WeeklyReport.tsx  — DONE (renders once day_logs has data)
 │           └── MonthlyPlan.tsx   — PLACEHOLDER only
 └── shared/
     ├── types/index.ts        — all shared TypeScript types
@@ -69,7 +70,7 @@ src/
 | `/goals`         | Done        |
 | `/today`         | Done        |
 | `/report/daily`  | Done        |
-| `/report/weekly` | Partial     |
+| `/report/weekly` | Done        |
 | `/plan`          | Placeholder |
 
 ## Startup Redirect Logic (App.tsx)
@@ -77,6 +78,15 @@ src/
 1. No config → `/setup`
 2. Config exists, no goals for current month → `/goals`
 3. Config + goals exist → `/today`
+
+## Overlay Lifecycle (main/index.ts)
+
+- App launches → main window visible, overlay hidden (starts with `show: false`, no auto-show)
+- Main window close or minimize → `win.on('close')` / `win.on('minimize')` call `win.hide()` → triggers `win.on('hide')` → `overlayWindow.show()`
+- Main window shows → `win.on('show')` → `overlayWindow.hide()`
+- "Open App →" in overlay → `overlay:open-main` IPC → `mainWindow.show()` → triggers `show` event → overlay hides
+- `—` button in overlay → `overlay:hide` IPC → `overlayWindow.hide()`
+- Tray → "Show Overlay" → `overlayWindow.show()`
 
 ## IPC Surface (window.api)
 
@@ -104,7 +114,7 @@ window.api.tasks.markMissed(date)
 window.api.tasks.carryOver(taskId, toDate)
 window.api.tasks.drop(taskId, date)
 window.api.tasks.getCarryOverCount(date)
-window.api.tasks.endOfDay(date)  — may not be in preload yet, check index.d.ts
+window.api.tasks.endOfDay(date)  — returns { score: number, feedback: string, completed: unknown[], missed: unknown[] }
 
 window.api.ai.validateGoal(title)
 window.api.ai.generateSubgoals(title, type)
@@ -112,7 +122,10 @@ window.api.ai.generateDailyTasks(context)
 window.api.ai.endOfDayFeedback(context)
 window.api.ai.suggestGoalFix(title, note)
 
+window.api.reports.week(endDate)  — returns { days: [...], patterns: [...] }
+
 window.api.overlay.openMain()
+window.api.overlay.hide()
 window.api.electronAPI.captureReport()
 ```
 
@@ -144,7 +157,7 @@ behavior_flags  — id, flag_type, description, task_id, subgoal_id, detected_on
 - Lock plan before tasks can be checked off
 - End of day: pending tasks → missed, score computed, AI feedback generated
 - Effort weights: light=1, medium=2, heavy=3
-- execution_score = completed_weight / total_weight
+- execution_score = completed_weight / total_weight (raw float 0–1, not percentage)
 
 ## Enforcement Rules for AI Prompts
 
@@ -154,39 +167,28 @@ behavior_flags  — id, flag_type, description, task_id, subgoal_id, detected_on
 - Max 3 sentences for end-of-day feedback
 - Tone: direct, honest, neutral
 
-## Known Issues / Gaps To Fix
+## Known Issues / Gaps
 
-1. `tasks:end-of-day` handler exists in tasks.ipc.ts but may not be exposed in preload — verify
-2. `WeeklyReport` UI exists but day_logs may be empty if end-of-day was never triggered
-3. `src/main/db/queries/` is empty — all queries are inline in IPC handlers
-4. `src/renderer/src/hooks/` is empty
-5. `src/overlay/` directory contains duplicate overlay code — not the active path, can be deleted
-6. `src/renderer/src/components/Versions.tsx` is leftover scaffold — unused, can be deleted
-7. API key stored as plaintext in `api_key_encrypted` column — encryption not implemented
-8. `npm run build` may fail due to unused `overlayWindow` variable — add `void overlayWindow` or use it
-9. Goals page: if goals exist for month, shows warning and blocks re-saving (correct behavior)
-10. Carry-over modal appears on Today page load if yesterday had pending tasks
+1. `src/overlay/` directory contains duplicate overlay code — not the active path, safe to delete
+2. `src/renderer/src/components/Versions.tsx` is leftover scaffold — unused, safe to delete
+3. API key stored as plaintext in `api_key_encrypted` column — encryption not implemented
+4. `src/main/db/queries/` is empty — all SQL queries are inline in IPC handlers
+5. `src/renderer/src/hooks/` is empty — no custom hooks extracted yet
+6. `tasks:end-of-day` score is a raw float (0–1); Today.tsx multiplies by 100 for display
 
 ## What Needs To Be Built Next
-
-### High priority
-
-- Wire `tasks:end-of-day` to Today page "End Day" button properly
-- Fix WeeklyReport to work once day_logs has data
-- Fix `npm run build` TypeScript errors before shipping
 
 ### Medium priority
 
 - Replan Today button (regenerates tasks once per day, keeps carry-overs)
-- Overlay drag fix (WebkitAppRegion via CSS classes .drag-region / .no-drag in main.css)
 - Monthly Plan page (shows all subgoals mapped to calendar weeks)
 
 ### Low priority (Phase 3)
 
 - API key encryption via Electron safeStorage
-- Delete duplicate src/overlay/ directory
-- Delete unused Versions.tsx component
-- Add src/main/db/queries/ layer instead of inline SQL
+- Delete duplicate `src/overlay/` directory
+- Delete unused `Versions.tsx` component
+- Add `src/main/db/queries/` layer instead of inline SQL
 
 ## Rules For This Codebase
 
