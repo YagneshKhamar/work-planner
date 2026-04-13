@@ -1,4 +1,4 @@
-export type AiProvider = 'openai' | 'anthropic'
+export type AiProvider = 'openai' | 'anthropic' | 'ollama' | 'openrouter'
 export type WorkingDay = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun'
 export type EffortLevel = 'light' | 'medium' | 'heavy'
 export type ProofType = 'none' | 'comment' | 'link'

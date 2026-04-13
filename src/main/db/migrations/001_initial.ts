@@ -11,6 +11,12 @@ export function runInitialMigration(db: Database.Database): void {
       working_days TEXT NOT NULL DEFAULT '["mon","tue","wed","thu","fri"]',
       break_start TEXT NOT NULL DEFAULT '13:00',
       break_end TEXT NOT NULL DEFAULT '14:00',
+      business_goal_count INTEGER NOT NULL DEFAULT 3,
+      personal_goal_count INTEGER NOT NULL DEFAULT 1,
+      family_goal_count INTEGER NOT NULL DEFAULT 1,
+      ollama_model TEXT NOT NULL DEFAULT 'llama3',
+      ollama_base_url TEXT NOT NULL DEFAULT 'http://localhost:11434',
+      openrouter_model TEXT NOT NULL DEFAULT 'mistralai/mistral-7b-instruct',
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
@@ -105,4 +111,15 @@ export function runInitialMigration(db: Database.Database): void {
       resolved_on TEXT
     );
   `)
+
+  const addColumnIfMissing = (col: string, def: string) => {
+    try {
+      db.exec(`ALTER TABLE config ADD COLUMN ${col} ${def}`)
+    } catch {
+      // column already exists, ignore
+    }
+  }
+  addColumnIfMissing("ollama_model", "TEXT NOT NULL DEFAULT 'llama3'")
+  addColumnIfMissing("ollama_base_url", "TEXT NOT NULL DEFAULT 'http://localhost:11434'")
+  addColumnIfMissing("openrouter_model", "TEXT NOT NULL DEFAULT 'mistralai/mistral-7b-instruct'")
 }

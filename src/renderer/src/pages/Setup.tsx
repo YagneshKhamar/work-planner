@@ -1,5 +1,6 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import React, { useEffect, useState } from 'react'
+import { Eye, EyeOff } from 'lucide-react'
+import { useToast } from '../components/Toast'
 
 const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const
 const DAY_LABELS: Record<string, string> = {
@@ -12,10 +13,8 @@ const DAY_LABELS: Record<string, string> = {
   sun: 'Sun',
 }
 
-export default function Setup(): JSX.Element {
-  const navigate = useNavigate()
-
-  const [provider, setProvider] = useState<'openai' | 'anthropic'>('openai')
+export default function Setup(): React.JSX.Element {
+  const [provider, setProvider] = useState<'openai' | 'anthropic' | 'ollama' | 'openrouter'>('openai')
   const [apiKey, setApiKey] = useState('')
   const [workingStart, setWorkingStart] = useState('09:00')
   const [workingEnd, setWorkingEnd] = useState('18:00')
@@ -23,102 +22,251 @@ export default function Setup(): JSX.Element {
   const [breakEnd, setBreakEnd] = useState('14:00')
   const [workingDays, setWorkingDays] = useState<string[]>(['mon', 'tue', 'wed', 'thu', 'fri'])
   const [showKey, setShowKey] = useState(false)
-  const [error, setError] = useState('')
+  const [formError, setFormError] = useState('')
+  const [businessGoalCount, setBusinessGoalCount] = useState(3)
+  const [personalGoalCount, setPersonalGoalCount] = useState(1)
+  const [familyGoalCount, setFamilyGoalCount] = useState(1)
+  const [ollamaModel, setOllamaModel] = useState('llama3')
+  const [ollamaBaseUrl, setOllamaBaseUrl] = useState('http://localhost:11434')
+  const [openrouterModel, setOpenrouterModel] = useState('mistralai/mistral-7b-instruct')
+  const { error, success } = useToast()
+
+  useEffect(() => {
+    async function hydrateConfig(): Promise<void> {
+      const config = (await window.api.config.get()) as Record<string, unknown> | null
+      if (!config) return
+      setProvider(
+        (config.ai_provider as 'openai' | 'anthropic' | 'ollama' | 'openrouter') ?? 'openai',
+      )
+      setApiKey((config.api_key_encrypted as string) ?? '')
+      setWorkingStart((config.working_start as string) ?? '09:00')
+      setWorkingEnd((config.working_end as string) ?? '18:00')
+      setBreakStart((config.break_start as string) ?? '13:00')
+      setBreakEnd((config.break_end as string) ?? '14:00')
+      setWorkingDays((config.working_days as string[]) ?? ['mon', 'tue', 'wed', 'thu', 'fri'])
+      setBusinessGoalCount(Number(config.business_goal_count ?? 3))
+      setPersonalGoalCount(Number(config.personal_goal_count ?? 1))
+      setFamilyGoalCount(Number(config.family_goal_count ?? 1))
+      setOllamaModel(String(config.ollama_model ?? 'llama3'))
+      setOllamaBaseUrl(String(config.ollama_base_url ?? 'http://localhost:11434'))
+      setOpenrouterModel(String(config.openrouter_model ?? 'mistralai/mistral-7b-instruct'))
+    }
+    hydrateConfig()
+  }, [])
 
   function toggleDay(day: string): void {
     setWorkingDays((prev) => (prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]))
   }
 
   function validate(): boolean {
-    if (!apiKey.trim()) {
-      setError('API key is required.')
+    if (provider !== 'ollama' && !apiKey.trim()) {
+      setFormError('API key is required.')
       return false
     }
+    if (provider === 'ollama') {
+      if (!ollamaBaseUrl.trim().startsWith('http')) {
+        setFormError('Ollama base URL must start with http.')
+        return false
+      }
+      if (!ollamaModel.trim()) {
+        setFormError('Ollama model is required.')
+        return false
+      }
+    }
+    if (provider === 'openrouter') {
+      if (!apiKey.trim()) {
+        setFormError('OpenRouter API key is required.')
+        return false
+      }
+      if (!openrouterModel.trim()) {
+        setFormError('OpenRouter model is required.')
+        return false
+      }
+    }
     if (workingDays.length === 0) {
-      setError('Select at least one working day.')
+      setFormError('Select at least one working day.')
       return false
     }
     if (workingStart >= workingEnd) {
-      setError('Working end time must be after start time.')
+      setFormError('Working end time must be after start time.')
       return false
     }
-    setError('')
+    if (businessGoalCount < 3 || personalGoalCount < 1 || familyGoalCount < 1) {
+      setFormError('Minimum goals: 3 business, 1 personal, 1 family.')
+      return false
+    }
+    setFormError('')
     return true
   }
 
   async function handleSave(): Promise<void> {
     if (!validate()) return
-    await window.api.config.save({
-      ai_provider: provider,
-      api_key: apiKey,
-      working_start: workingStart,
-      working_end: workingEnd,
-      working_days: workingDays,
-      break_start: breakStart,
-      break_end: breakEnd,
-    })
-    navigate('/goals')
+    try {
+      await window.api.config.save({
+        ai_provider: provider,
+        api_key: apiKey,
+        working_start: workingStart,
+        working_end: workingEnd,
+        working_days: workingDays,
+        break_start: breakStart,
+        break_end: breakEnd,
+        business_goal_count: businessGoalCount,
+        personal_goal_count: personalGoalCount,
+        family_goal_count: familyGoalCount,
+        ollama_model: ollamaModel,
+        ollama_base_url: ollamaBaseUrl,
+        openrouter_model: openrouterModel,
+      })
+      success('Settings saved.')
+    } catch {
+      error('Failed to save settings.')
+    }
   }
   return (
-    <div className="h-screen w-screen bg-gray-950 overflow-y-auto flex items-start justify-center">
-      <div className="w-full max-w-md px-6 py-10">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-white tracking-tight">ExecOS Setup</h1>
-          <p className="text-gray-500 text-sm mt-1">Configure once. Run every day.</p>
+    <div className="h-full w-full overflow-y-auto bg-[var(--bg-base)] p-8">
+      <div className="mx-auto bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-lg p-8 w-full max-w-md">
+        <div>
+          <p className="font-mono text-xs tracking-widest text-[var(--text-muted)] uppercase mb-1">
+            EXECOS
+          </p>
+          <h1 className="text-xl font-semibold text-[var(--text-primary)]">Setup</h1>
+          <p className="text-sm text-[var(--text-secondary)] mt-1 mb-6">
+            Configure your AI provider and schedule.
+          </p>
         </div>
 
         <div className="space-y-5">
-          {/* AI Provider */}
           <div>
-            <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+            <label className="block text-xs font-mono text-[var(--text-muted)] uppercase tracking-widest mb-2">
               AI Provider
             </label>
-            <div className="flex gap-2">
-              {(['openai', 'anthropic'] as const).map((p) => (
+            <div className="grid grid-cols-2 gap-2">
+              {(['openai', 'anthropic', 'ollama', 'openrouter'] as const).map((p) => (
                 <button
                   key={p}
                   onClick={() => setProvider(p)}
-                  className={`flex-1 py-2.5 rounded-lg text-sm font-medium border transition-colors cursor-pointer ${
+                  className={`flex-1 py-2 rounded text-sm font-medium cursor-pointer transition-colors ${
                     provider === p
-                      ? 'bg-blue-600 border-blue-600 text-white'
-                      : 'bg-gray-900 border-gray-800 text-gray-400 hover:border-gray-600'
+                      ? 'bg-[var(--bg-elevated)] border border-[var(--border-active)] text-[var(--text-primary)]'
+                      : 'bg-transparent border border-[var(--border-default)] text-[var(--text-secondary)]'
                   }`}
                 >
-                  {p === 'openai' ? 'OpenAI' : 'Anthropic'}
+                  {p === 'openai'
+                    ? 'OpenAI'
+                    : p === 'anthropic'
+                      ? 'Anthropic'
+                      : p === 'ollama'
+                        ? 'Ollama (local)'
+                        : 'OpenRouter'}
                 </button>
               ))}
             </div>
           </div>
 
-          {/* API Key */}
-          <div>
-            <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
-              API Key
-            </label>
-            <div className="relative">
-              <input
-                type={showKey ? 'text' : 'password'}
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                placeholder={provider === 'openai' ? 'sk-...' : 'sk-ant-...'}
-                className="w-full bg-gray-900 border border-gray-800 rounded-lg px-4 py-2.5 text-white text-sm placeholder-gray-700 focus:outline-none focus:border-blue-500 transition-colors"
-              />
-              <button
-                onClick={() => setShowKey((v) => !v)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 text-xs cursor-pointer"
-              >
-                {showKey ? 'Hide' : 'Show'}
-              </button>
+          {provider !== 'ollama' ? (
+            <div>
+              <label className="block text-xs font-mono text-[var(--text-muted)] uppercase tracking-widest mb-2">
+                API Key
+              </label>
+              <div className="relative">
+                <input
+                  type={showKey ? 'text' : 'password'}
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  placeholder={
+                    provider === 'openai'
+                      ? 'sk-...'
+                      : provider === 'anthropic'
+                        ? 'sk-ant-...'
+                        : 'or-...'
+                  }
+                  className="w-full bg-[var(--bg-base)] border border-[var(--border-default)] focus:border-[var(--border-active)] rounded px-3 py-2 text-sm text-[var(--text-primary)] outline-none transition-colors pr-10"
+                />
+                <button
+                  onClick={() => setShowKey((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] cursor-pointer"
+                >
+                  {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+              <p className="text-[var(--text-muted)] text-xs mt-1.5">
+                Stored encrypted on your machine. Never sent anywhere else.
+              </p>
             </div>
-            <p className="text-gray-700 text-xs mt-1.5">
-              Stored encrypted on your machine. Never sent anywhere else.
+          ) : (
+            <p className="text-xs text-[var(--text-muted)] mt-2">
+              No API key needed. Ollama must be running locally.
             </p>
-          </div>
+          )}
 
-          {/* Working Hours */}
+          {provider === 'ollama' && (
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-mono text-[var(--text-muted)] uppercase tracking-widest mb-2">
+                  Ollama Base URL
+                </label>
+                <input
+                  type="text"
+                  value={ollamaBaseUrl}
+                  onChange={(e) => setOllamaBaseUrl(e.target.value)}
+                  placeholder="http://localhost:11434"
+                  className="w-full bg-[var(--bg-base)] border border-[var(--border-default)] focus:border-[var(--border-active)] rounded px-3 py-2 text-sm text-[var(--text-primary)] outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-mono text-[var(--text-muted)] uppercase tracking-widest mb-2">
+                  Model Name
+                </label>
+                <input
+                  type="text"
+                  value={ollamaModel}
+                  onChange={(e) => setOllamaModel(e.target.value)}
+                  placeholder="llama3, mistral, phi3..."
+                  className="w-full bg-[var(--bg-base)] border border-[var(--border-default)] focus:border-[var(--border-active)] rounded px-3 py-2 text-sm text-[var(--text-primary)] outline-none"
+                />
+              </div>
+              <a
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault()
+                  window.open('https://ollama.com/library')
+                }}
+                className="text-xs text-[var(--accent-blue)] hover:underline cursor-pointer"
+              >
+                Browse Ollama models ↗
+              </a>
+            </div>
+          )}
+
+          {provider === 'openrouter' && (
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-mono text-[var(--text-muted)] uppercase tracking-widest mb-2">
+                  Model
+                </label>
+                <input
+                  type="text"
+                  value={openrouterModel}
+                  onChange={(e) => setOpenrouterModel(e.target.value)}
+                  placeholder="mistralai/mistral-7b-instruct"
+                  className="w-full bg-[var(--bg-base)] border border-[var(--border-default)] focus:border-[var(--border-active)] rounded px-3 py-2 text-sm text-[var(--text-primary)] outline-none"
+                />
+              </div>
+              <a
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault()
+                  window.open('https://openrouter.ai/models')
+                }}
+                className="text-xs text-[var(--accent-blue)] hover:underline cursor-pointer"
+              >
+                Browse OpenRouter models ↗
+              </a>
+            </div>
+          )}
+
           <div>
-            <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+            <label className="block text-xs font-mono text-[var(--text-muted)] uppercase tracking-widest mb-2">
               Working Hours
             </label>
             <div className="flex items-center gap-3">
@@ -126,21 +274,20 @@ export default function Setup(): JSX.Element {
                 type="time"
                 value={workingStart}
                 onChange={(e) => setWorkingStart(e.target.value)}
-                className="bg-gray-900 border border-gray-800 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500 transition-colors"
+                className="w-28 bg-[var(--bg-base)] border border-[var(--border-default)] focus:border-[var(--border-active)] rounded px-3 py-2 text-sm text-[var(--text-primary)] outline-none transition-colors"
               />
-              <span className="text-gray-600 text-sm">to</span>
+              <span className="text-[var(--text-secondary)] text-sm">to</span>
               <input
                 type="time"
                 value={workingEnd}
                 onChange={(e) => setWorkingEnd(e.target.value)}
-                className="bg-gray-900 border border-gray-800 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500 transition-colors"
+                className="w-28 bg-[var(--bg-base)] border border-[var(--border-default)] focus:border-[var(--border-active)] rounded px-3 py-2 text-sm text-[var(--text-primary)] outline-none transition-colors"
               />
             </div>
           </div>
 
-          {/* Break Time */}
           <div>
-            <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+            <label className="block text-xs font-mono text-[var(--text-muted)] uppercase tracking-widest mb-2">
               Break Time
             </label>
             <div className="flex items-center gap-3">
@@ -148,32 +295,31 @@ export default function Setup(): JSX.Element {
                 type="time"
                 value={breakStart}
                 onChange={(e) => setBreakStart(e.target.value)}
-                className="bg-gray-900 border border-gray-800 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500 transition-colors"
+                className="w-28 bg-[var(--bg-base)] border border-[var(--border-default)] focus:border-[var(--border-active)] rounded px-3 py-2 text-sm text-[var(--text-primary)] outline-none transition-colors"
               />
-              <span className="text-gray-600 text-sm">to</span>
+              <span className="text-[var(--text-secondary)] text-sm">to</span>
               <input
                 type="time"
                 value={breakEnd}
                 onChange={(e) => setBreakEnd(e.target.value)}
-                className="bg-gray-900 border border-gray-800 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500 transition-colors"
+                className="w-28 bg-[var(--bg-base)] border border-[var(--border-default)] focus:border-[var(--border-active)] rounded px-3 py-2 text-sm text-[var(--text-primary)] outline-none transition-colors"
               />
             </div>
           </div>
 
-          {/* Working Days */}
           <div>
-            <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+            <label className="block text-xs font-mono text-[var(--text-muted)] uppercase tracking-widest mb-2">
               Working Days
             </label>
-            <div className="flex gap-1.5">
+            <div className="flex gap-1.5 flex-wrap">
               {DAYS.map((day) => (
                 <button
                   key={day}
                   onClick={() => toggleDay(day)}
-                  className={`flex-1 py-2 rounded-lg text-xs font-semibold border transition-colors cursor-pointer ${
+                  className={`px-3 py-1.5 rounded text-xs font-mono cursor-pointer transition-colors ${
                     workingDays.includes(day)
-                      ? 'bg-blue-600 border-blue-600 text-white'
-                      : 'bg-gray-900 border-gray-800 text-gray-500 hover:border-gray-600'
+                      ? 'bg-[var(--accent-blue)] text-white border border-[var(--accent-blue)]'
+                      : 'bg-transparent border border-[var(--border-default)] text-[var(--text-secondary)] hover:border-[var(--border-active)]'
                   }`}
                 >
                   {DAY_LABELS[day]}
@@ -182,17 +328,52 @@ export default function Setup(): JSX.Element {
             </div>
           </div>
 
-          {/* Error */}
-          {error && (
-            <div className="bg-red-950 border border-red-800 rounded-lg px-4 py-2.5">
-              <p className="text-red-400 text-sm">{error}</p>
+          <div className="bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded p-4 space-y-3">
+            <label className="block text-xs font-mono text-[var(--text-muted)] uppercase tracking-widest">
+              Monthly Goal Slots
+            </label>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <p className="text-xs text-[var(--text-secondary)] mb-1">Business</p>
+                <input
+                  type="number"
+                  min={3}
+                  value={businessGoalCount}
+                  onChange={(e) => setBusinessGoalCount(Math.max(3, Number(e.target.value) || 3))}
+                  className="w-full bg-[var(--bg-base)] border border-[var(--border-default)] rounded px-3 py-2 text-sm text-[var(--text-primary)] outline-none"
+                />
+              </div>
+              <div>
+                <p className="text-xs text-[var(--text-secondary)] mb-1">Personal</p>
+                <input
+                  type="number"
+                  min={1}
+                  value={personalGoalCount}
+                  onChange={(e) => setPersonalGoalCount(Math.max(1, Number(e.target.value) || 1))}
+                  className="w-full bg-[var(--bg-base)] border border-[var(--border-default)] rounded px-3 py-2 text-sm text-[var(--text-primary)] outline-none"
+                />
+              </div>
+              <div>
+                <p className="text-xs text-[var(--text-secondary)] mb-1">Family</p>
+                <input
+                  type="number"
+                  min={1}
+                  value={familyGoalCount}
+                  onChange={(e) => setFamilyGoalCount(Math.max(1, Number(e.target.value) || 1))}
+                  className="w-full bg-[var(--bg-base)] border border-[var(--border-default)] rounded px-3 py-2 text-sm text-[var(--text-primary)] outline-none"
+                />
+              </div>
             </div>
-          )}
+            <p className="text-[var(--text-muted)] text-xs">
+              Minimum: 3 business, 1 personal, 1 family.
+            </p>
+          </div>
 
-          {/* Save */}
+          {formError && <p className="text-sm text-[var(--accent-red)] mt-3">{formError}</p>}
+
           <button
             onClick={handleSave}
-            className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-lg transition-colors text-sm cursor-pointer mt-2"
+            className="w-full bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-dim)] text-white font-medium py-2.5 rounded text-sm cursor-pointer transition-colors mt-6 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             Save & Continue →
           </button>

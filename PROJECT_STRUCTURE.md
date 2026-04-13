@@ -5,7 +5,7 @@ This file maps the repository as it exists today.
 ## Top-Level Layout
 
 ```text
-work-planner/
+execd/
 ├── build/
 ├── resources/
 ├── src/

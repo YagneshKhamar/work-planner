@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { ChevronDown, ExternalLink } from 'lucide-react'
 
 interface Task {
   id: string
@@ -40,98 +41,87 @@ export default function Overlay(): React.JSX.Element {
   const pending = tasks.filter((t) => t.status === 'pending')
 
   return (
-    <div
-      className="drag-region h-full w-full bg-gray-950/90 backdrop-blur-sm flex flex-col p-3 select-none overflow-hidden"
-      style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
-    >
-      {/* Header */}
-      <div
-        className="drag-region flex items-center justify-between mb-2"
-        style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
-      >
-        <span className="text-white text-xs font-bold">{score}%</span>
-        <div
-          className="no-drag flex items-center gap-3"
-          style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-        >
-          <button
-            onClick={() => window.api.overlay.openMain()}
-            className="text-gray-500 hover:text-gray-300 text-xs cursor-pointer transition-colors"
+    <div className="h-screen w-screen overflow-hidden">
+      <div className="drag-region h-full flex flex-col bg-[#0d0d0d]/90 backdrop-blur-xl border border-white/[0.06] rounded-xl overflow-hidden p-3">
+        <div className="flex items-center justify-between mb-2">
+          <span
+            className={`font-mono text-sm font-semibold ${
+              score >= 80
+                ? 'text-[var(--accent-green)]'
+                : score >= 50
+                  ? 'text-[var(--accent-yellow)]'
+                  : 'text-[var(--accent-red)]'
+            }`}
           >
-            Open App →
-          </button>
-          <button
-            onClick={() => window.api.overlay.hide()}
-            className="text-gray-600 hover:text-gray-300 text-xs cursor-pointer transition-colors"
-            title="Hide overlay"
-          >
-            —
-          </button>
-        </div>
-      </div>
-
-      {/* Progress */}
-      <div
-        className="no-drag h-1 bg-gray-800 rounded-full mb-3 overflow-hidden"
-        style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-      >
-        <div
-          className="h-full bg-blue-600 rounded-full transition-all duration-500"
-          style={{ width: `${score}%` }}
-        />
-      </div>
-
-      {/* Tasks */}
-      {loading ? (
-        <div className="flex-1 flex items-center justify-center">
-          <p className="text-gray-700 text-xs">Loading...</p>
-        </div>
-      ) : tasks.length === 0 ? (
-        <div className="flex-1 flex items-center justify-center">
-          <p className="text-gray-700 text-xs">No tasks today. Open app to generate.</p>
-        </div>
-      ) : (
-        <div
-          className="no-drag flex-1 space-y-1.5 overflow-hidden"
-          style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-        >
-          {tasks.slice(0, 5).map((task) => (
-            <div
-              key={task.id}
-              className={`flex items-center gap-2 px-2 py-1.5 rounded-lg ${
-                task.status === 'completed' ? 'opacity-40' : 'bg-gray-900/60'
-              }`}
+            {score}%
+          </span>
+          <div className="no-drag flex items-center gap-1">
+            <button
+              onClick={() => window.api.overlay.hide()}
+              className="no-drag text-white/20 hover:text-white/60 cursor-pointer transition-colors p-0.5"
+              title="Minimize overlay"
             >
-              <div
-                className={`w-3 h-3 rounded-sm border shrink-0 flex items-center justify-center ${
-                  task.status === 'completed' ? 'bg-green-600 border-green-600' : 'border-gray-600'
-                }`}
-              >
-                {task.status === 'completed' && <span className="text-white text-[8px]">✓</span>}
-              </div>
-              <p
-                className={`text-xs flex-1 truncate ${
-                  task.status === 'completed' ? 'text-gray-600 line-through' : 'text-gray-200'
-                }`}
-              >
-                {task.title}
-              </p>
-            </div>
-          ))}
+              <ChevronDown className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => window.api.overlay.openMain()}
+              className="no-drag text-white/20 hover:text-white/60 cursor-pointer transition-colors p-0.5"
+              title="Open app"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
-      )}
 
-      {/* Footer */}
-      {pending.length > 0 && (
-        <div
-          className="no-drag mt-2 pt-2 border-t border-gray-800"
-          style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-        >
-          <p className="text-gray-600 text-xs">
-            {pending.length} task{pending.length > 1 ? 's' : ''} remaining
+        <div className="no-drag h-0.5 rounded-full mb-3 overflow-hidden bg-white/5">
+          <div
+            className="h-full bg-[var(--accent-blue)] rounded-full transition-all duration-500"
+            style={{ width: `${score}%` }}
+          />
+        </div>
+
+        {loading ? (
+          <div className="flex-1 flex items-center justify-center">
+            <p className="text-[10px] text-white/20 font-mono">loading...</p>
+          </div>
+        ) : tasks.length === 0 ? (
+          <div className="flex-1 flex items-center justify-center">
+            <p className="text-[10px] text-white/20 font-mono">no tasks today</p>
+          </div>
+        ) : (
+          <div className="flex-1 space-y-1 overflow-hidden">
+            {tasks.slice(0, 5).map((task) => (
+              <div key={task.id} className="flex items-center gap-2 py-1">
+                <span
+                  className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                    task.status === 'completed'
+                      ? 'bg-[var(--accent-green)]'
+                      : task.status === 'missed'
+                        ? 'bg-[var(--accent-red)]'
+                        : 'bg-white/20'
+                  }`}
+                />
+                <p
+                  className={`text-xs flex-1 truncate ${
+                    task.status === 'completed' ? 'text-white/30 line-through' : 'text-white/80'
+                  }`}
+                >
+                  {task.title}
+                </p>
+                <span className="font-mono text-[9px] text-white/20 shrink-0">
+                  {task.effort === 'light' ? 'L' : task.effort === 'medium' ? 'M' : 'H'}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="mt-auto pt-2 border-t border-white/[0.04] no-drag">
+          <p className="font-mono text-[10px] text-white/20">
+            {pending.length > 0 ? `${pending.length} remaining` : 'all done'}
           </p>
         </div>
-      )}
+      </div>
     </div>
   )
 }

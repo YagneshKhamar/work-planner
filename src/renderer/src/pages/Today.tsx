@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { CheckCircle } from 'lucide-react'
+import { useToast } from '../components/Toast'
 
 interface Task {
   id: string
@@ -23,9 +25,12 @@ interface DayPlan {
 
 const EFFORT_LABELS = { light: '30m', medium: '1h', heavy: '2h' }
 const EFFORT_COLORS = {
-  light: 'text-green-400 bg-green-950 border-green-800',
-  medium: 'text-yellow-400 bg-yellow-950 border-yellow-800',
-  heavy: 'text-red-400 bg-red-950 border-red-800',
+  light:
+    'font-mono text-[10px] px-1.5 py-0.5 rounded bg-[var(--accent-green)]/10 text-[var(--accent-green)] border border-[var(--accent-green)]/20',
+  medium:
+    'font-mono text-[10px] px-1.5 py-0.5 rounded bg-[var(--accent-yellow)]/10 text-[var(--accent-yellow)] border border-[var(--accent-yellow)]/20',
+  heavy:
+    'font-mono text-[10px] px-1.5 py-0.5 rounded bg-[var(--accent-red)]/10 text-[var(--accent-red)] border border-[var(--accent-red)]/20',
 }
 
 function getToday(): string {
@@ -46,7 +51,6 @@ export default function Today(): React.JSX.Element {
   const [completingId, setCompletingId] = useState<string | null>(null)
   const [proofInput, setProofInput] = useState<Record<string, string>>({})
   const [showProof, setShowProof] = useState<Record<string, boolean>>({})
-  const [error, setError] = useState('')
   const [missedFromYesterday, setMissedFromYesterday] = useState<Task[]>([])
   const [showCarryOver, setShowCarryOver] = useState(false)
   const [carryOverProcessing, setCarryOverProcessing] = useState(false)
@@ -56,6 +60,7 @@ export default function Today(): React.JSX.Element {
     score: number
     feedback: string
   } | null>(null)
+  const { error, success } = useToast()
 
   useEffect(() => {
     loadTodayData()
@@ -88,7 +93,7 @@ export default function Today(): React.JSX.Element {
   async function handleCarryOver(task: Task): Promise<void> {
     const currentCount = await window.api.tasks.getCarryOverCount(getToday())
     if (currentCount >= 2) {
-      setError('Max 2 carry-over tasks allowed. Drop one first.')
+      error('Max 2 carry-over tasks. Drop one first.')
       return
     }
     setCarryOverProcessing(true)
@@ -117,14 +122,13 @@ export default function Today(): React.JSX.Element {
 
   async function handleGenerateTasks(): Promise<void> {
     setGenerating(true)
-    setError('')
     try {
       const config = (await window.api.config.get()) as Record<string, string>
       const month = getCurrentMonth()
       const goals = (await window.api.goals.get(month)) as { id: string }[]
 
       if (!goals || goals.length === 0) {
-        setError('No goals found for this month. Set up your goals first.')
+        error('Failed to generate tasks. Check your API key.')
         setGenerating(false)
         return
       }
@@ -163,7 +167,7 @@ export default function Today(): React.JSX.Element {
       })
 
       if (!result.success || !result.data) {
-        setError('Failed to generate tasks. Check your API key.')
+        error('Failed to generate tasks. Check your API key.')
         setGenerating(false)
         return
       }
@@ -190,8 +194,9 @@ export default function Today(): React.JSX.Element {
       )
 
       await loadTodayData()
+      success('Tasks generated for today.')
     } catch (e) {
-      setError('Something went wrong generating tasks.')
+      error('Failed to generate tasks. Check your API key.')
       console.error(e)
     } finally {
       setGenerating(false)
@@ -200,14 +205,14 @@ export default function Today(): React.JSX.Element {
 
   async function handleEndDay(): Promise<void> {
     setEndingDay(true)
-    setError('')
     try {
       const result = await window.api.tasks.endOfDay(getToday())
       setEndDayResult({ score: result.score, feedback: result.feedback })
       setDayEnded(true)
       await loadTodayData()
+      success('Day complete. Good work.')
     } catch (e) {
-      setError('Failed to end the day. Try again.')
+      error('Failed to end day. Try again.')
       console.error(e)
     } finally {
       setEndingDay(false)
@@ -217,9 +222,15 @@ export default function Today(): React.JSX.Element {
   async function handleLockPlan(): Promise<void> {
     if (!dayPlan) return
     setLocking(true)
-    await window.api.tasks.lockDayPlan(getToday())
-    await loadTodayData()
-    setLocking(false)
+    try {
+      await window.api.tasks.lockDayPlan(getToday())
+      await loadTodayData()
+      success('Plan locked. Day started.')
+    } catch {
+      error('Failed to lock plan.')
+    } finally {
+      setLocking(false)
+    }
   }
 
   async function handleComplete(task: Task): Promise<void> {
@@ -233,14 +244,13 @@ export default function Today(): React.JSX.Element {
   async function handleProofSubmit(task: Task): Promise<void> {
     const proof = proofInput[task.id]?.trim()
     if (!proof) {
-      setError('Proof is required to complete this task.')
+      error('Proof is required to complete this task.')
       return
     }
     if (task.proof_type === 'link' && !proof.startsWith('http')) {
-      setError('Please enter a valid URL starting with http.')
+      error('Please enter a valid URL starting with http.')
       return
     }
-    setError('')
     await completeTask(task, proof)
     setShowProof((prev) => ({ ...prev, [task.id]: false }))
   }
@@ -256,44 +266,47 @@ export default function Today(): React.JSX.Element {
   const totalCount = tasks.length
   const score = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0
   const isLocked = dayPlan?.locked === 1
+  const carriedCount = tasks.reduce((sum, task) => sum + task.carry_count, 0)
 
   if (loading) {
     return (
-      <div className="h-screen w-screen bg-gray-950 flex items-center justify-center">
-        <p className="text-gray-600 text-sm">Loading...</p>
+      <div className="h-full w-full bg-[var(--bg-base)] flex items-center justify-center">
+        <p className="text-[var(--text-muted)] text-sm font-mono">loading...</p>
       </div>
     )
   }
 
   return (
-    <div className="h-screen w-screen bg-gray-950 overflow-y-auto">
-      <div className="max-w-2xl mx-auto px-6 py-10">
+    <div className="h-full w-full overflow-y-auto bg-[var(--bg-base)]">
+      <div className="max-w-4xl mx-auto px-8 py-8">
         {/* Carry Over Modal */}
         {showCarryOver && missedFromYesterday.length > 0 && (
-          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 px-6">
-            <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 w-full max-w-md">
-              <h2 className="text-white font-bold text-lg mb-1">Missed Tasks</h2>
-              <p className="text-gray-500 text-xs mb-4">
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-6">
+            <div className="bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-xl p-6 w-full max-w-sm">
+              <h2 className="text-[var(--text-primary)] font-semibold text-base mb-1">Missed Yesterday</h2>
+              <p className="text-[var(--text-secondary)] text-xs mb-4">
                 You missed {missedFromYesterday.length} task
                 {missedFromYesterday.length > 1 ? 's' : ''} yesterday. Max 2 can carry forward.
               </p>
-
               <div className="space-y-3 mb-5">
                 {missedFromYesterday.map((task) => (
-                  <div key={task.id} className="bg-gray-800 border border-gray-700 rounded-xl p-3">
-                    <p className="text-white text-sm mb-2">{task.title}</p>
+                  <div
+                    key={task.id}
+                    className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded p-3 mb-3"
+                  >
+                    <p className="text-sm text-[var(--text-primary)] mb-2">{task.title}</p>
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleCarryOver(task)}
                         disabled={carryOverProcessing}
-                        className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 text-white text-xs font-semibold py-1.5 rounded-lg cursor-pointer transition-colors"
+                        className="flex-1 bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-dim)] text-white text-xs font-medium py-1.5 rounded cursor-pointer transition-colors"
                       >
                         Carry Forward
                       </button>
                       <button
                         onClick={() => handleDrop(task)}
                         disabled={carryOverProcessing}
-                        className="flex-1 bg-gray-700 hover:bg-gray-600 disabled:bg-gray-700 text-gray-300 text-xs font-semibold py-1.5 rounded-lg cursor-pointer transition-colors"
+                        className="flex-1 bg-transparent border border-[var(--border-default)] hover:border-[var(--border-active)] text-[var(--text-secondary)] text-xs font-medium py-1.5 rounded cursor-pointer transition-colors"
                       >
                         Drop
                       </button>
@@ -304,7 +317,7 @@ export default function Today(): React.JSX.Element {
 
               <button
                 onClick={handleDismissCarryOver}
-                className="w-full text-gray-600 hover:text-gray-400 text-xs cursor-pointer transition-colors"
+                className="w-full text-[var(--text-muted)] hover:text-[var(--text-secondary)] text-xs cursor-pointer transition-colors mt-2 text-center"
               >
                 Mark all as missed and continue
               </button>
@@ -312,114 +325,162 @@ export default function Today(): React.JSX.Element {
           </div>
         )}
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-start justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-white tracking-tight">Today</h1>
-            <p className="text-gray-500 text-sm mt-0.5">
+            <h1 className="text-xl font-semibold text-[var(--text-primary)]">
               {new Date().toLocaleDateString('en-US', {
-                weekday: 'long',
                 month: 'long',
                 day: 'numeric',
               })}
+            </h1>
+            <p className="text-sm text-[var(--text-secondary)] mt-0.5">
+              {new Date().toLocaleDateString('en-US', { weekday: 'long' })}
             </p>
           </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => navigate('/goals')}
-              className="text-gray-600 hover:text-gray-400 text-xs transition-colors cursor-pointer"
-            >
-              Goals ↗
-            </button>
-            <button
-              onClick={() => navigate('/report/daily')}
-              className="text-gray-600 hover:text-gray-400 text-xs transition-colors cursor-pointer"
-            >
-              Report
-            </button>
-          </div>
+          <span
+            className={`font-mono text-sm font-semibold px-2 py-1 rounded ${
+              score >= 80
+                ? 'bg-[var(--accent-green)]/10 text-[var(--accent-green)]'
+                : score >= 50
+                  ? 'bg-[var(--accent-yellow)]/10 text-[var(--accent-yellow)]'
+                  : 'bg-[var(--accent-red)]/10 text-[var(--accent-red)]'
+            }`}
+          >
+            {score}%
+          </span>
         </div>
 
-        {/* Score Bar */}
-        {tasks.length > 0 && (
-          <div className="mb-6">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-gray-400 text-xs">
-                {completedCount} of {totalCount} completed
-              </span>
-              <span className="text-white text-sm font-bold">{score}%</span>
-            </div>
-            <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
+        {tasks.length > 0 && isLocked && (
+          <div className="grid grid-cols-4 gap-3 mb-6">
+            <div className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-xl p-4">
               <div
-                className="h-full bg-blue-600 rounded-full transition-all duration-500"
-                style={{ width: `${score}%` }}
-              />
+                className={`font-mono text-2xl ${
+                  score >= 80
+                    ? 'text-[var(--accent-green)]'
+                    : score >= 50
+                      ? 'text-[var(--accent-yellow)]'
+                      : 'text-[var(--accent-red)]'
+                }`}
+              >
+                {score}%
+              </div>
+              <div className="text-xs text-[var(--text-muted)] mt-1 uppercase tracking-wider">
+                execution score
+              </div>
+              <div className="h-0.5 mt-2 bg-[var(--border-default)] rounded">
+                <div
+                  className={`h-full rounded ${
+                    score >= 80
+                      ? 'bg-[var(--accent-green)]'
+                      : score >= 50
+                        ? 'bg-[var(--accent-yellow)]'
+                        : 'bg-[var(--accent-red)]'
+                  }`}
+                  style={{ width: `${score}%` }}
+                />
+              </div>
+            </div>
+            <div className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-xl p-4">
+              <div className="font-mono text-2xl text-[var(--text-primary)]">
+                {completedCount} / {totalCount}
+              </div>
+              <div className="text-xs text-[var(--text-muted)] mt-1 uppercase tracking-wider">tasks</div>
+            </div>
+            <div className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-xl p-4">
+              <div className="font-mono text-2xl text-[var(--text-secondary)]">
+                {tasks.filter((t) => t.status !== 'completed').length}
+              </div>
+              <div className="text-xs text-[var(--text-muted)] mt-1 uppercase tracking-wider">
+                remaining
+              </div>
+            </div>
+            <div className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-xl p-4">
+              <div
+                className={`font-mono text-2xl ${
+                  carriedCount > 0
+                    ? 'text-[var(--accent-orange)]'
+                    : 'text-[var(--text-secondary)]'
+                }`}
+              >
+                {carriedCount}
+              </div>
+              <div className="text-xs text-[var(--text-muted)] mt-1 uppercase tracking-wider">
+                carried over
+              </div>
             </div>
           </div>
         )}
 
         {/* No tasks state */}
         {tasks.length === 0 && (
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-8 text-center mb-6">
-            <p className="text-gray-400 text-sm mb-1">No tasks for today.</p>
-            <p className="text-gray-600 text-xs">Generate your daily plan to get started.</p>
+          <div className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-xl p-8 text-center mb-6">
+            <p className="text-[var(--text-secondary)] text-sm mb-1">No tasks for today.</p>
+            <p className="text-[var(--text-muted)] text-xs">Generate your daily plan to get started.</p>
           </div>
         )}
 
         {/* Tasks */}
         {tasks.length > 0 && (
-          <div className="space-y-3 mb-6">
+          <div className="mb-6">
             {tasks.map((task) => (
               <div
                 key={task.id}
-                className={`bg-gray-900 border rounded-xl p-4 transition-colors ${
-                  task.status === 'completed' ? 'border-green-900 opacity-60' : 'border-gray-800'
+                className={`bg-[var(--bg-surface)] border border-[var(--border-subtle)] hover:border-[var(--border-default)] rounded-xl p-4 mb-2 transition-colors ${
+                  task.status === 'completed' ? 'opacity-50' : ''
                 }`}
               >
                 <div className="flex items-start gap-3">
-                  {/* Checkbox */}
                   <button
                     onClick={() => task.status !== 'completed' && handleComplete(task)}
                     disabled={task.status === 'completed' || completingId === task.id || !isLocked}
-                    className={`mt-0.5 w-5 h-5 rounded border flex items-center justify-center flex-shrink-0 transition-colors cursor-pointer ${
+                    className={`mt-0.5 w-4 h-4 rounded-sm border border-[var(--border-default)] flex items-center justify-center shrink-0 transition-colors cursor-pointer ${
                       task.status === 'completed'
-                        ? 'bg-green-600 border-green-600'
-                        : 'border-gray-600 hover:border-blue-500'
+                        ? 'bg-[var(--accent-green)] text-white'
+                        : 'bg-transparent'
                     }`}
                   >
-                    {task.status === 'completed' && <span className="text-white text-xs">✓</span>}
+                    {task.status === 'completed' && <span className="text-[10px] leading-none">✓</span>}
                   </button>
 
                   <div className="flex-1 min-w-0">
-                    <p
-                      className={`text-sm ${
-                        task.status === 'completed' ? 'text-gray-500 line-through' : 'text-white'
-                      }`}
-                    >
-                      {task.title}
-                    </p>
-
-                    <div className="flex items-center gap-2 mt-1.5">
+                    <div className="flex items-start gap-2">
+                      <p
+                        className={`flex-1 text-sm ${
+                          task.status === 'completed'
+                            ? 'text-[var(--text-secondary)] line-through'
+                            : 'text-[var(--text-primary)]'
+                        }`}
+                      >
+                        {task.title}
+                      </p>
                       <span
-                        className={`text-xs font-medium px-1.5 py-0.5 rounded border ${EFFORT_COLORS[task.effort]}`}
+                        className={`${EFFORT_COLORS[task.effort]} shrink-0`}
                       >
                         {EFFORT_LABELS[task.effort]}
                       </span>
-                      {task.proof_type !== 'none' && (
-                        <span className="text-xs text-gray-600">
-                          {task.proof_type === 'link' ? '🔗 link required' : '💬 comment required'}
-                        </span>
-                      )}
+                      <span className="text-xs text-[var(--text-secondary)] capitalize shrink-0">
+                        {task.scheduled_time_slot}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2 mt-1.5">
                       {task.carry_count > 0 && (
-                        <span className="text-xs text-orange-500">carried {task.carry_count}×</span>
+                        <span className="font-mono text-[10px] text-[var(--accent-orange)]">
+                          ×{task.carry_count} carried
+                        </span>
                       )}
                     </div>
 
-                    {/* Proof completed */}
-                    {task.status === 'completed' && task.proof_value && (
-                      <p className="text-xs text-gray-600 mt-1.5 truncate">✓ {task.proof_value}</p>
+                    {isLocked && task.status === 'pending' && task.proof_type !== 'none' && (
+                      <p className="text-xs text-[var(--text-muted)] mt-1">
+                        {task.proof_type === 'link' ? 'requires link' : 'requires comment'}
+                      </p>
                     )}
 
-                    {/* Proof input */}
+                    {task.status === 'completed' && task.proof_value && (
+                      <p className="text-xs text-[var(--text-muted)] mt-1.5 truncate">{task.proof_value}</p>
+                    )}
+
                     {showProof[task.id] && task.status !== 'completed' && (
                       <div className="mt-3 space-y-2">
                         <input
@@ -431,11 +492,11 @@ export default function Today(): React.JSX.Element {
                           onChange={(e) =>
                             setProofInput((prev) => ({ ...prev, [task.id]: e.target.value }))
                           }
-                          className="w-full bg-gray-950 border border-gray-700 rounded-lg px-3 py-2 text-white text-xs placeholder-gray-700 focus:outline-none focus:border-blue-500"
+                          className="w-full bg-[var(--bg-base)] border border-[var(--border-default)] focus:border-[var(--border-active)] rounded px-3 py-2 text-sm text-[var(--text-primary)] outline-none"
                         />
                         <button
                           onClick={() => handleProofSubmit(task)}
-                          className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold px-4 py-1.5 rounded-lg cursor-pointer transition-colors"
+                          className="bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-dim)] text-white text-xs font-medium px-4 py-1.5 rounded cursor-pointer transition-colors"
                         >
                           Mark Complete
                         </button>
@@ -448,20 +509,13 @@ export default function Today(): React.JSX.Element {
           </div>
         )}
 
-        {/* Error */}
-        {error && (
-          <div className="bg-red-950 border border-red-800 rounded-lg px-4 py-2.5 mb-4">
-            <p className="text-red-400 text-sm">{error}</p>
-          </div>
-        )}
-
         {/* Actions */}
         <div className="space-y-3">
           {!isLocked && (
             <button
               onClick={handleGenerateTasks}
               disabled={generating}
-              className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-gray-800 disabled:text-gray-600 text-white font-semibold py-3 rounded-lg transition-colors text-sm cursor-pointer"
+              className="w-full bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-dim)] disabled:opacity-40 disabled:cursor-not-allowed text-white font-medium py-2.5 rounded text-sm cursor-pointer transition-colors"
             >
               {generating ? 'Generating tasks...' : "Generate Today's Tasks"}
             </button>
@@ -471,34 +525,43 @@ export default function Today(): React.JSX.Element {
             <button
               onClick={handleLockPlan}
               disabled={locking}
-              className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-gray-800 disabled:text-gray-600 text-white font-semibold py-3 rounded-lg transition-colors text-sm cursor-pointer"
+              className="w-full bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-dim)] disabled:opacity-40 disabled:cursor-not-allowed text-white font-medium py-2.5 rounded text-sm cursor-pointer transition-colors"
             >
               {locking ? 'Locking...' : '🔒 Lock Plan & Start Day'}
             </button>
           )}
 
-          {isLocked && tasks.length > 0 && !dayEnded && (
+          {isLocked && dayPlan?.replan_used === 0 && (
+            <button
+              disabled
+              className="w-full bg-transparent border border-[var(--border-default)] hover:border-[var(--border-active)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] font-medium py-2.5 rounded text-sm cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Replan Today (once)
+            </button>
+          )}
+
+          {isLocked && tasks.length > 0 && !dayEnded && !tasks.every((t) => t.status === 'completed') && (
             <button
               onClick={handleEndDay}
               disabled={endingDay}
-              className="w-full bg-gray-800 hover:bg-gray-700 disabled:bg-gray-800 disabled:text-gray-600 text-gray-300 font-semibold py-3 rounded-lg transition-colors text-sm cursor-pointer"
+              className="w-full bg-transparent border border-[var(--accent-red)]/30 hover:border-[var(--accent-red)] text-[var(--accent-red)] font-medium py-2.5 rounded text-sm cursor-pointer transition-colors"
             >
               {endingDay ? 'Ending day...' : 'End Day'}
             </button>
           )}
 
           {dayEnded && endDayResult && (
-            <div className="bg-gray-900 border border-gray-700 rounded-xl p-5 space-y-3">
+            <div className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-xl p-5 space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-gray-400 text-xs">Execution score</span>
-                <span className="text-white font-bold text-sm">
+                <span className="text-[var(--text-secondary)] text-xs">Execution score</span>
+                <span className="text-[var(--text-primary)] font-bold text-sm">
                   {Math.round(endDayResult.score * 100)}%
                 </span>
               </div>
-              <p className="text-gray-400 text-xs leading-relaxed">{endDayResult.feedback}</p>
+              <p className="text-[var(--text-secondary)] text-xs leading-relaxed">{endDayResult.feedback}</p>
               <button
                 onClick={() => navigate('/report/daily')}
-                className="text-blue-500 hover:text-blue-400 text-xs cursor-pointer transition-colors"
+                className="text-[var(--accent-blue)] hover:text-[var(--accent-blue-dim)] text-xs cursor-pointer transition-colors"
               >
                 View full report →
               </button>
@@ -506,8 +569,9 @@ export default function Today(): React.JSX.Element {
           )}
 
           {isLocked && !dayEnded && tasks.every((t) => t.status === 'completed') && (
-            <div className="bg-green-950 border border-green-800 rounded-xl p-4 text-center">
-              <p className="text-green-400 font-semibold text-sm">All tasks complete. 100%.</p>
+            <div className="flex items-center gap-2 text-[var(--accent-green)] text-sm">
+              <CheckCircle className="w-4 h-4" />
+              <p>All tasks complete</p>
             </div>
           )}
         </div>

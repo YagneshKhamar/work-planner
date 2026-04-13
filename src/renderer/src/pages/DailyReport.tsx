@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
-// to check for Olama or open router so no extra keys payment needs to be added
+import { Download } from 'lucide-react'
+import { useToast } from '../components/Toast'
+
 interface Task {
   id: string
   title: string
@@ -31,21 +32,29 @@ function formatDate(iso: string): string {
 }
 
 export default function DailyReport(): React.JSX.Element {
-  const navigate = useNavigate()
   const reportRef = useRef<HTMLDivElement>(null)
   const [todayTasks, setTodayTasks] = useState<Task[]>([])
   const [tomorrowTasks, setTomorrowTasks] = useState<Task[]>([])
+  const [dayLog, setDayLog] = useState<{
+    execution_score: number
+    ai_feedback: string
+    tasks_completed: number
+    tasks_missed: number
+  } | null>(null)
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
+  const { error, success } = useToast()
 
   useEffect(() => {
     async function load(): Promise<void> {
-      const [today, tomorrow] = await Promise.all([
+      const [today, tomorrow, log] = await Promise.all([
         window.api.tasks.getByDate(getToday()) as Promise<Task[]>,
         window.api.tasks.getByDate(getTomorrow()) as Promise<Task[]>,
+        window.api.reports.dayLog(getToday()),
       ])
       setTodayTasks(today)
       setTomorrowTasks(tomorrow)
+      setDayLog(log)
       setLoading(false)
     }
     load()
@@ -78,8 +87,10 @@ export default function DailyReport(): React.JSX.Element {
       link.download = `daily-report-${getToday()}.png`
       link.href = `data:image/png;base64,${base64}`
       link.click()
-    } catch (error) {
-      console.error('Failed to capture report:', error)
+      success('Report saved as image.')
+    } catch (captureError) {
+      console.error('Failed to capture report:', captureError)
+      error('Failed to capture report image.')
     } finally {
       // 5. Always cleanup
       document.body.classList.remove('capture-mode')
@@ -89,88 +100,129 @@ export default function DailyReport(): React.JSX.Element {
 
   function statusLabel(status: Task['status']): React.JSX.Element {
     if (status === 'completed')
-      return <span className="text-green-400 font-semibold text-xs">✓ done</span>
-    if (status === 'missed') return <span className="text-red-400 text-xs">✗ missed</span>
-    if (status === 'carried') return <span className="text-orange-400 text-xs">↪ carried</span>
-    if (status === 'dropped') return <span className="text-gray-600 text-xs">— dropped</span>
-    return <span className="text-gray-500 text-xs">· pending</span>
+      return (
+        <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-[var(--accent-green)]/10 text-[var(--accent-green)] border border-[var(--accent-green)]/20">
+          completed
+        </span>
+      )
+    if (status === 'missed')
+      return (
+        <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-[var(--accent-red)]/10 text-[var(--accent-red)] border border-[var(--accent-red)]/20">
+          missed
+        </span>
+      )
+    if (status === 'carried')
+      return (
+        <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-[var(--accent-orange)]/10 text-[var(--accent-orange)] border border-[var(--accent-orange)]/20">
+          carried
+        </span>
+      )
+    if (status === 'dropped')
+      return (
+        <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-[var(--border-default)]/30 text-[var(--text-muted)] border border-[var(--border-default)]">
+          dropped
+        </span>
+      )
+    return (
+      <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-[var(--border-default)]/30 text-[var(--text-secondary)] border border-[var(--border-default)]">
+        pending
+      </span>
+    )
   }
 
   if (loading) {
     return (
-      <div className="h-screen w-screen bg-gray-950 flex items-center justify-center">
-        <p className="text-gray-600 text-sm">Loading...</p>
+      <div className="h-screen w-screen overflow-y-auto bg-[var(--bg-base)] flex items-center justify-center">
+        <p className="text-[var(--text-muted)] text-sm font-mono">loading...</p>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 flex flex-col items-center py-10 px-6">
-      <div className="w-full max-w-xl mb-4">
-        <button
-          onClick={() => navigate('/today')}
-          className="text-gray-600 hover:text-gray-400 text-sm transition-colors cursor-pointer"
-        >
-          ← Back to Today
-        </button>
-      </div>
-
-      {/* Capture area */}
+    <div className="h-screen w-screen overflow-y-auto bg-[var(--bg-base)]">
       <div
         ref={reportRef}
         data-report-capture="daily-report"
-        className="w-full max-w-xl bg-gray-950 px-8 py-10 rounded-2xl"
+        className="max-w-2xl mx-auto px-8 py-8"
       >
-        {/* Header */}
-        <div className="mb-8">
-          <p className="text-blue-500 text-xs font-semibold uppercase tracking-widest mb-1">
-            Daily Report
+        <div className="mb-6">
+          <p className="font-mono text-xs tracking-widest text-[var(--text-muted)] uppercase mb-1">
+            DAILY REPORT
           </p>
-          <h1 className="text-white text-2xl font-bold tracking-tight">{formatDate(getToday())}</h1>
+          <h1 className="text-xl font-semibold text-[var(--text-primary)]">
+            {formatDate(getToday())}
+          </h1>
         </div>
 
-        {/* Score */}
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 mb-8">
-          <p className="text-gray-500 text-xs mb-2">Execution Score</p>
-          <div className="flex items-end gap-3">
-            <span className="text-5xl font-bold text-white">{score}%</span>
-            <span className="text-gray-600 text-sm mb-1.5">
-              {completedWeight} / {totalWeight} weight
-            </span>
+        <div className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded p-6 mb-6">
+          <div
+            className={`font-mono text-6xl font-semibold leading-none ${
+              score >= 80
+                ? 'text-[var(--accent-green)]'
+                : score >= 50
+                  ? 'text-[var(--accent-yellow)]'
+                  : 'text-[var(--accent-red)]'
+            }`}
+          >
+            {score}%
           </div>
-          <div className="mt-3 h-1.5 bg-gray-800 rounded-full overflow-hidden">
-            <div className="h-full bg-blue-600 rounded-full" style={{ width: `${score}%` }} />
+          <p className="font-mono text-sm text-[var(--text-muted)] mt-1">
+            {completedWeight} / {totalWeight} weight
+          </p>
+          <div className="h-0.5 bg-[var(--border-default)] rounded mt-4">
+            <div
+              className={`h-full rounded ${
+                score >= 80
+                  ? 'bg-[var(--accent-green)]'
+                  : score >= 50
+                    ? 'bg-[var(--accent-yellow)]'
+                    : 'bg-[var(--accent-red)]'
+              }`}
+              style={{ width: `${score}%` }}
+            />
           </div>
         </div>
 
-        {/* Today's Tasks */}
-        <section className="mb-8">
-          <h2 className="text-gray-400 text-xs font-semibold uppercase tracking-widest mb-3">
-            Today&apos;s Tasks
+        {dayLog && dayLog.ai_feedback && (
+          <div className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded p-5 mb-6">
+            <p className="font-mono text-xs tracking-widest text-[var(--text-muted)] uppercase mb-3">
+              AI Feedback
+            </p>
+            <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
+              {dayLog.ai_feedback}
+            </p>
+          </div>
+        )}
+
+        <section className="mb-6">
+          <h2 className="font-mono text-xs tracking-widest text-[var(--text-muted)] uppercase mb-3">
+            Today
           </h2>
           {todayTasks.length === 0 ? (
-            <p className="text-gray-700 text-sm">No tasks recorded.</p>
+            <p className="text-sm text-[var(--text-muted)] py-2">No tasks recorded.</p>
           ) : (
-            <div className="space-y-2">
+            <div>
               {todayTasks.map((task) => (
                 <div
                   key={task.id}
-                  className="flex items-start justify-between gap-4 py-2.5 border-b border-gray-900"
+                  className="flex items-start justify-between gap-4 py-3 border-b border-[var(--border-subtle)]"
                 >
                   <div className="flex-1 min-w-0">
                     <p
                       className={`text-sm ${
                         task.status === 'completed'
-                          ? 'text-gray-400 line-through'
-                          : task.status === 'dropped'
-                            ? 'text-gray-700'
-                            : 'text-white'
+                          ? 'text-[var(--text-muted)] line-through'
+                          : task.status === 'missed'
+                            ? 'text-[var(--text-secondary)]'
+                            : 'text-[var(--text-primary)]'
                       }`}
                     >
                       {task.title}
                     </p>
-                    {task.status === 'completed' && task.proof_value && (
-                      <p className="text-gray-600 text-xs mt-0.5 truncate">↳ {task.proof_value}</p>
+                    {task.proof_value && (
+                      <p className="text-xs text-[var(--text-muted)] mt-0.5 truncate">
+                        {task.proof_value}
+                      </p>
                     )}
                   </div>
                   <div className="shrink-0">{statusLabel(task.status)}</div>
@@ -180,38 +232,43 @@ export default function DailyReport(): React.JSX.Element {
           )}
         </section>
 
-        {/* Tomorrow's Tasks */}
-        {tomorrowTasks.length > 0 && (
-          <section className="mb-8">
-            <h2 className="text-gray-400 text-xs font-semibold uppercase tracking-widest mb-3">
-              Planned for Tomorrow
-            </h2>
-            <div className="space-y-2">
+        <section>
+          <h2 className="font-mono text-xs tracking-widest text-[var(--text-muted)] uppercase mb-3">
+            Tomorrow
+          </h2>
+          {tomorrowTasks.length === 0 ? (
+            <p className="text-sm text-[var(--text-muted)] py-2">No tasks planned.</p>
+          ) : (
+            <div>
               {tomorrowTasks.map((task) => (
                 <div
                   key={task.id}
-                  className="flex items-center justify-between gap-4 py-2.5 border-b border-gray-900"
+                  className="flex items-start justify-between gap-4 py-3 border-b border-[var(--border-subtle)]"
                 >
-                  <p className="text-gray-400 text-sm">{task.title}</p>
-                  <span className="text-gray-600 text-xs flex-shrink-0">{task.effort}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-[var(--text-primary)]">{task.title}</p>
+                    {task.proof_value && (
+                      <p className="text-xs text-[var(--text-muted)] mt-0.5 truncate">
+                        {task.proof_value}
+                      </p>
+                    )}
+                  </div>
+                  <div className="shrink-0">{statusLabel(task.status)}</div>
                 </div>
               ))}
             </div>
-          </section>
-        )}
+          )}
+        </section>
 
-        {/* Footer */}
-        <p className="text-gray-800 text-xs text-center mt-6">ExecOS · Work Planner</p>
+        <button
+          onClick={handleSaveImage}
+          disabled={saving}
+          className="flex items-center gap-2 bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-dim)] disabled:opacity-40 text-white text-sm font-medium px-5 py-2.5 rounded cursor-pointer transition-colors mt-6"
+        >
+          <Download className="w-4 h-4" />
+          {saving ? 'Saving...' : 'Save as Image'}
+        </button>
       </div>
-
-      {/* Save button — outside capture area */}
-      <button
-        onClick={handleSaveImage}
-        disabled={saving}
-        className="mt-6 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-800 disabled:text-gray-600 text-white text-sm font-semibold px-6 py-2.5 rounded-lg transition-colors cursor-pointer"
-      >
-        {saving ? 'Saving...' : 'Save as Image'}
-      </button>
     </div>
   )
 }

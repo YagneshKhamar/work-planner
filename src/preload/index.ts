@@ -46,6 +46,7 @@ contextBridge.exposeInMainWorld('api', {
   },
   reports: {
     week: (endDate: string) => ipcRenderer.invoke('reports:week', endDate),
+    dayLog: (date: string) => ipcRenderer.invoke('reports:day-log', date),
   },
   overlay: {
     openMain: () => ipcRenderer.invoke('overlay:open-main'),

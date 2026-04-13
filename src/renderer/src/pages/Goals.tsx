@@ -1,59 +1,57 @@
-import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { ChevronLeft, Sparkles, Target, Trash2 } from 'lucide-react'
+import { useToast } from '../components/Toast'
 
 type GoalType = 'business' | 'personal' | 'family'
 type ValidationState = 'idle' | 'validating' | 'valid' | 'invalid'
+type GoalsView = 'empty' | 'add' | 'review'
 
 interface GoalInput {
+  id: string
   title: string
   type: GoalType
+  label: string
+  placeholder: string
   validationState: ValidationState
   validationNote: string
 }
 
 interface SubgoalItem {
+  id?: string
   title: string
   priority: 'high' | 'medium' | 'low'
 }
 
 interface GoalWithSubgoals extends GoalInput {
-  id: string
   subgoals: SubgoalItem[]
   loadingSubgoals: boolean
   suggestedFix?: string
   aiSuggestionUsed?: boolean
 }
 
-const GOAL_SLOTS: { type: GoalType; label: string; placeholder: string }[] = [
-  {
-    type: 'business',
-    label: 'Business Goal 1',
-    placeholder: 'e.g. Launch landing page and get 50 signups',
-  },
-  { type: 'business', label: 'Business Goal 2', placeholder: 'e.g. Close 3 new paying customers' },
-  { type: 'business', label: 'Business Goal 3', placeholder: 'e.g. Ship v1 of the mobile app' },
-  {
-    type: 'personal',
-    label: 'Personal Goal',
-    placeholder: 'e.g. Read 2 books on systems thinking',
-  },
-  {
-    type: 'family',
-    label: 'Family Goal',
-    placeholder: 'e.g. Plan and take a weekend trip with family',
-  },
-]
+interface SavedGoal {
+  id: string
+  title: string
+  type: 'business' | 'personal' | 'family'
+  ai_validated: number
+  ai_validation_note: string
+  month: string
+}
 
 const TYPE_BADGE: Record<GoalType, string> = {
-  business: 'bg-blue-950 border-blue-800 text-blue-400',
-  personal: 'bg-purple-950 border-purple-800 text-purple-400',
-  family: 'bg-green-950 border-green-800 text-green-400',
+  business:
+    'font-mono text-[10px] px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20',
+  personal:
+    'font-mono text-[10px] px-2 py-0.5 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20',
+  family:
+    'font-mono text-[10px] px-2 py-0.5 rounded bg-[var(--accent-green)]/10 text-[var(--accent-green)] border border-[var(--accent-green)]/20',
 }
 
 const PRIORITY_COLORS = {
-  high: 'text-red-400 bg-red-950 border-red-800',
-  medium: 'text-yellow-400 bg-yellow-950 border-yellow-800',
-  low: 'text-gray-400 bg-gray-800 border-gray-700',
+  high: 'font-mono text-[10px] px-1.5 py-0.5 rounded bg-[var(--accent-red)]/10 text-[var(--accent-red)] border border-[var(--accent-red)]/20',
+  medium:
+    'font-mono text-[10px] px-1.5 py-0.5 rounded bg-[var(--accent-yellow)]/10 text-[var(--accent-yellow)] border border-[var(--accent-yellow)]/20',
+  low: 'font-mono text-[10px] px-1.5 py-0.5 rounded bg-[var(--border-default)]/30 text-[var(--text-secondary)] border border-[var(--border-default)]',
 }
 
 function getCurrentMonth(): string {
@@ -61,37 +59,107 @@ function getCurrentMonth(): string {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
 }
 
-export default function Goals(): React.JSX.Element {
-  const navigate = useNavigate()
+function getMonthLabel(month: string): string {
+  return new Date(`${month}-01T00:00:00`).toLocaleDateString('en-US', {
+    month: 'long',
+    year: 'numeric',
+  })
+}
 
-  const [goals, setGoals] = useState<GoalWithSubgoals[]>(
-    GOAL_SLOTS.map((slot, i) => ({
-      id: String(i),
+function buildGoalSlots(counts: {
+  business: number
+  personal: number
+  family: number
+}): GoalWithSubgoals[] {
+  const placeholders: Record<GoalType, string[]> = {
+    business: [
+      'e.g. Launch landing page and get 50 signups',
+      'e.g. Close 3 new paying customers',
+      'e.g. Ship v1 of the mobile app',
+    ],
+    personal: ['e.g. Read 2 books on systems thinking', 'e.g. Exercise 4 times per week'],
+    family: ['e.g. Plan and take a weekend trip with family', 'e.g. Set weekly family dinner routine'],
+  }
+
+  const createForType = (type: GoalType, count: number): GoalInput[] =>
+    Array.from({ length: count }).map((_, index) => ({
+      id: `${type}-${index}`,
       title: '',
-      type: slot.type,
+      type,
+      label: `${type.charAt(0).toUpperCase()}${type.slice(1)} Goal ${index + 1}`,
+      placeholder: placeholders[type][index] ?? `e.g. ${type} goal ${index + 1}`,
       validationState: 'idle',
       validationNote: '',
-      subgoals: [],
-      loadingSubgoals: false,
-    })),
-  )
+    }))
 
+  return [
+    ...createForType('business', counts.business),
+    ...createForType('personal', counts.personal),
+    ...createForType('family', counts.family),
+  ].map((goal) => ({ ...goal, subgoals: [], loadingSubgoals: false }))
+}
+
+export default function Goals(): React.JSX.Element {
+  const [view, setView] = useState<GoalsView>('empty')
   const [step, setStep] = useState<'input' | 'subgoals'>('input')
-  const [error, setError] = useState('')
+  const [goals, setGoals] = useState<GoalWithSubgoals[]>([])
+  const [savedGoals, setSavedGoals] = useState<SavedGoal[]>([])
+  const [subgoalMap, setSubgoalMap] = useState<Record<string, SubgoalItem[]>>({})
+  const [goalConfig, setGoalConfig] = useState({ business: 3, personal: 1, family: 1 })
   const [validating, setValidating] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [goalsAlreadySet, setGoalsAlreadySet] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const month = useMemo(() => getCurrentMonth(), [])
+  const { error, success, info } = useToast()
+
+  async function loadSavedGoals(targetMonth: string): Promise<SavedGoal[]> {
+    const fetched = (await window.api.goals.get(targetMonth)) as SavedGoal[]
+    setSavedGoals(fetched)
+
+    if (fetched.length > 0) {
+      const entries = await Promise.all(
+        fetched.map(async (goal) => {
+          const subs = (await window.api.subgoals.getByGoal(goal.id)) as SubgoalItem[]
+          return [goal.id, subs] as const
+        }),
+      )
+      setSubgoalMap(Object.fromEntries(entries))
+    } else {
+      setSubgoalMap({})
+    }
+
+    return fetched
+  }
 
   useEffect(() => {
-    async function checkExistingGoals(): Promise<void> {
-      const month = getCurrentMonth()
-      const existing = (await window.api.goals.get(month)) as unknown[]
-      if (existing && existing.length > 0) {
-        setGoalsAlreadySet(true)
+    async function bootstrap(): Promise<void> {
+      try {
+        setLoading(true)
+        const config = (await window.api.config.get()) as Record<string, unknown> | null
+        const counts = {
+          business: Math.max(3, Number(config?.business_goal_count ?? 3)),
+          personal: Math.max(1, Number(config?.personal_goal_count ?? 1)),
+          family: Math.max(1, Number(config?.family_goal_count ?? 1)),
+        }
+        setGoalConfig(counts)
+        setGoals(buildGoalSlots(counts))
+
+        const fetched = await loadSavedGoals(month)
+        setView(fetched.length > 0 ? 'review' : 'empty')
+      } catch {
+        error('Failed to load goals.')
+      } finally {
+        setLoading(false)
       }
     }
-    checkExistingGoals()
-  }, [])
+    bootstrap()
+  }, [error, month])
+
+  function startAddFlow(): void {
+    setGoals(buildGoalSlots(goalConfig))
+    setStep('input')
+    setView('add')
+  }
 
   function updateGoalTitle(index: number, title: string): void {
     setGoals((prev) =>
@@ -140,10 +208,9 @@ export default function Goals(): React.JSX.Element {
   async function handleValidateAndContinue(): Promise<void> {
     const empty = goals.filter((g) => !g.title.trim())
     if (empty.length > 0) {
-      setError('All 5 goals are required.')
+      info(`All ${goals.length} goals are required.`)
       return
     }
-    setError('')
     setValidating(true)
 
     const updated = [...goals]
@@ -153,8 +220,6 @@ export default function Goals(): React.JSX.Element {
       setGoals([...updated])
 
       const result = await window.api.ai.validateGoal(updated[i].title)
-
-      console.log('subgoals result:', JSON.stringify(result))
 
       if (updated[i].aiSuggestionUsed) {
         updated[i] = {
@@ -192,7 +257,7 @@ export default function Goals(): React.JSX.Element {
         }
         setGoals([...updated])
         setValidating(false)
-        setError('AI validation failed. Check your API key in Setup.')
+        error('Validation failed. Check your API key.')
         return
       }
       setGoals([...updated])
@@ -202,11 +267,10 @@ export default function Goals(): React.JSX.Element {
     setValidating(false)
 
     if (hasInvalid) {
-      setError('Some goals need revision. Fix the flagged goals and try again.')
+      info('Fix flagged goals before continuing.')
       return
     }
 
-    // All valid — generate subgoals
     for (let i = 0; i < updated.length; i++) {
       updated[i] = { ...updated[i], loadingSubgoals: true }
       setGoals([...updated])
@@ -221,6 +285,7 @@ export default function Goals(): React.JSX.Element {
         }
       } else {
         updated[i] = { ...updated[i], loadingSubgoals: false }
+        error(`Failed to generate subgoals for: ${updated[i].title}`)
       }
       setGoals([...updated])
     }
@@ -229,7 +294,6 @@ export default function Goals(): React.JSX.Element {
   }
 
   async function handleSaveAndContinue(): Promise<void> {
-    const month = getCurrentMonth()
     setSaving(true)
 
     try {
@@ -237,16 +301,14 @@ export default function Goals(): React.JSX.Element {
         goals.map((g) => ({ title: g.title, type: g.type, month })),
       )
 
-      if (!result.success) {
-        setError('Failed to save goals.')
+      if (!result.success || !result.ids || result.ids.length !== goals.length) {
+        error('Failed to save goals.')
         setSaving(false)
         return
       }
 
-      const savedGoals = (await window.api.goals.get(month)) as { id: string }[]
-
-      for (let i = 0; i < savedGoals.length; i++) {
-        const goalId = savedGoals[i].id
+      for (let i = 0; i < result.ids.length; i++) {
+        const goalId = result.ids[i]
         const subgoals = goals[i].subgoals.filter((s) => s.title.trim())
         if (subgoals.length > 0) {
           await window.api.subgoals.save(
@@ -255,80 +317,195 @@ export default function Goals(): React.JSX.Element {
         }
       }
 
-      navigate('/today')
+      await loadSavedGoals(month)
+      setView('review')
+      setStep('input')
+      success('Goals saved for this month.')
     } catch (e) {
       console.error('Error saving goals:', e)
-      setError('Something went wrong saving goals.')
+      error('Failed to save goals.')
     } finally {
       setSaving(false)
     }
   }
 
-  if (step === 'subgoals') {
+  const totalSubgoals = savedGoals.reduce((sum, goal) => sum + (subgoalMap[goal.id]?.length ?? 0), 0)
+
+  if (loading) {
     return (
-      <div className="h-screen w-screen bg-gray-950 overflow-y-auto">
-        <div className="max-w-2xl mx-auto px-6 py-10">
-          <div className="mb-8">
-            <button
-              onClick={() => setStep('input')}
-              className="text-gray-600 hover:text-gray-400 text-sm transition-colors cursor-pointer mb-2 block"
-            >
-              ← Back to Goals
-            </button>
-            <h1 className="text-2xl font-bold text-white tracking-tight">Review Subgoals</h1>
-            <p className="text-gray-500 text-sm mt-1">
-              AI has broken each goal into subgoals. Edit, remove, or add before confirming.
+      <div className="h-screen w-screen bg-[var(--bg-base)] flex items-center justify-center">
+        <p className="text-[var(--text-muted)] text-sm font-mono">loading...</p>
+      </div>
+    )
+  }
+
+  if (view === 'empty') {
+    return (
+      <div className="h-screen w-screen flex flex-col items-center justify-center bg-[var(--bg-base)]">
+        <Target className="w-10 h-10 text-[var(--text-muted)] mb-4" />
+        <h1 className="text-lg font-semibold text-[var(--text-primary)] mb-2">No goals set</h1>
+        <p className="text-sm text-[var(--text-secondary)] mb-6 text-center max-w-xs">
+          Define your monthly goals to generate daily tasks. You need goals before the app can plan
+          your day.
+        </p>
+        <div className="flex gap-2 mb-8">
+          <span className="font-mono text-xs px-3 py-1.5 rounded border border-blue-500/30 text-blue-400 bg-blue-500/10">
+            {goalConfig.business} Business
+          </span>
+          <span className="font-mono text-xs px-3 py-1.5 rounded border border-purple-500/30 text-purple-400 bg-purple-500/10">
+            {goalConfig.personal} Personal
+          </span>
+          <span className="font-mono text-xs px-3 py-1.5 rounded border border-[var(--accent-green)]/30 text-[var(--accent-green)] bg-[var(--accent-green)]/10">
+            {goalConfig.family} Family
+          </span>
+        </div>
+        <button
+          onClick={startAddFlow}
+          className="bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-dim)] text-white px-6 py-2.5 rounded text-sm font-medium cursor-pointer transition-colors"
+        >
+          Set Goals for {getMonthLabel(month)}
+        </button>
+      </div>
+    )
+  }
+
+  if (view === 'review') {
+    return (
+      <div className="h-screen w-screen overflow-y-auto bg-[var(--bg-base)]">
+        <div className="max-w-4xl mx-auto px-8 py-8">
+          <div className="flex justify-between items-center mb-6">
+            <div>
+              <p className="font-mono text-xs tracking-widest text-[var(--text-muted)] uppercase">GOALS</p>
+              <p className="font-mono text-xs text-[var(--text-muted)] mt-1">{getMonthLabel(month)}</p>
+              <h1 className="text-xl font-semibold text-[var(--text-primary)] mt-1">Goals Set</h1>
+            </div>
+            <p className="text-xs text-[var(--text-muted)] font-mono">
+              {savedGoals.length} / {totalSubgoals} subgoals active
             </p>
           </div>
 
-          <div className="space-y-6 mb-6">
+          <div className="space-y-3">
+            {savedGoals.map((goal) => {
+              const subgoals = subgoalMap[goal.id] ?? []
+              return (
+                <div
+                  key={goal.id}
+                  className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded overflow-hidden"
+                >
+                  <div className="px-5 py-4 flex items-center justify-between">
+                    <div className="flex items-center min-w-0">
+                      <span className={TYPE_BADGE[goal.type]}>{goal.type}</span>
+                      <p className="text-sm font-medium text-[var(--text-primary)] ml-3 flex-1 truncate">
+                        {goal.title}
+                      </p>
+                    </div>
+                    <span
+                      className={`font-mono text-[10px] px-2 py-0.5 rounded border ${
+                        goal.ai_validated === 1
+                          ? 'bg-[var(--accent-green)]/10 text-[var(--accent-green)] border-[var(--accent-green)]/20'
+                          : 'bg-[var(--text-muted)]/10 text-[var(--text-muted)] border-[var(--text-muted)]/20'
+                      }`}
+                    >
+                      {goal.ai_validated === 1 ? 'validated' : 'unvalidated'}
+                    </span>
+                  </div>
+
+                  <div className="px-5 pb-4 border-t border-[var(--border-subtle)] pt-3 space-y-2">
+                    {subgoals.length > 0 ? (
+                      subgoals.map((subgoal, index) => (
+                        <div key={`${goal.id}-${index}`} className="flex items-center gap-3">
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full ${
+                              subgoal.priority === 'high'
+                                ? 'bg-[var(--accent-red)]'
+                                : subgoal.priority === 'medium'
+                                  ? 'bg-[var(--accent-yellow)]'
+                                  : 'bg-[var(--text-muted)]'
+                            }`}
+                          />
+                          <p className="text-sm text-[var(--text-secondary)] flex-1">{subgoal.title}</p>
+                          <span className={PRIORITY_COLORS[subgoal.priority]}>{subgoal.priority}</span>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-xs text-[var(--text-muted)] py-1">No subgoals generated</p>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          <p className="text-xs text-[var(--text-muted)] text-center mt-6">
+            Goals are locked for this month. Contact support to reset.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  if (step === 'subgoals') {
+    return (
+      <div className="h-screen w-screen overflow-y-auto bg-[var(--bg-base)]">
+        <div className="max-w-4xl mx-auto px-8 py-8">
+          <p className="font-mono text-xs text-[var(--text-muted)] mb-1">STEP 2 OF 2 - REVIEW SUBGOALS</p>
+          <h1 className="text-xl font-semibold text-[var(--text-primary)] mb-6">Review Subgoals</h1>
+
+          <div className="space-y-5 mb-6">
             {goals.map((goal, gi) => (
-              <div key={gi} className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-white text-sm font-semibold truncate flex-1 mr-2">
-                    {goal.title}
-                  </span>
-                  <span
-                    className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${TYPE_BADGE[goal.type]}`}
-                  >
-                    {goal.type}
+              <div
+                key={goal.id}
+                className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-xl p-5"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className={`${TYPE_BADGE[goal.type]} shrink-0`}>{goal.type}</span>
+                    <span className="text-sm text-[var(--text-primary)] font-medium truncate">
+                      {goal.title}
+                    </span>
+                  </div>
+                  <span className="font-mono text-[10px] text-[var(--text-muted)]">
+                    {goal.subgoals.length} subgoals
                   </span>
                 </div>
 
                 {goal.loadingSubgoals ? (
-                  <div className="text-gray-600 text-xs py-2">Generating subgoals...</div>
+                  <div className="text-[var(--text-muted)] text-xs py-2">Generating subgoals...</div>
                 ) : (
-                  <div className="space-y-2">
+                  <div>
                     {goal.subgoals.map((sub, si) => (
-                      <div key={si} className="flex items-center gap-2">
+                      <div
+                        key={si}
+                        className="flex items-center gap-3 bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded px-4 py-2.5 mb-1.5"
+                      >
+                        <select
+                          value={sub.priority}
+                          onChange={(e) => updateSubgoal(gi, si, 'priority', e.target.value)}
+                          className={`${PRIORITY_COLORS[sub.priority]} outline-none cursor-pointer`}
+                        >
+                          <option value="high">high</option>
+                          <option value="medium">medium</option>
+                          <option value="low">low</option>
+                        </select>
                         <input
                           type="text"
                           value={sub.title}
                           onChange={(e) => updateSubgoal(gi, si, 'title', e.target.value)}
-                          className="flex-1 bg-gray-950 border border-gray-800 rounded-lg px-3 py-2 text-white text-xs placeholder-gray-700 focus:outline-none focus:border-blue-500"
+                          className="flex-1 bg-transparent text-sm text-[var(--text-primary)] outline-none"
                         />
-                        <select
-                          value={sub.priority}
-                          onChange={(e) => updateSubgoal(gi, si, 'priority', e.target.value)}
-                          className={`text-xs border rounded-lg px-2 py-2 focus:outline-none cursor-pointer ${PRIORITY_COLORS[sub.priority]}`}
-                        >
-                          <option value="high">High</option>
-                          <option value="medium">Medium</option>
-                          <option value="low">Low</option>
-                        </select>
                         <button
                           onClick={() => removeSubgoal(gi, si)}
-                          className="text-gray-700 hover:text-red-400 text-xs transition-colors cursor-pointer px-1"
+                          className="text-[var(--text-muted)] hover:text-[var(--accent-red)] cursor-pointer transition-colors"
                         >
-                          ✕
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     ))}
                     <button
                       onClick={() => addSubgoal(gi)}
-                      className="text-gray-600 hover:text-gray-400 text-xs transition-colors cursor-pointer mt-1"
+                      className="text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)] cursor-pointer mt-1 ml-1"
                     >
-                      + Add subgoal
+                      Add subgoal
                     </button>
                   </div>
                 )}
@@ -336,18 +513,12 @@ export default function Goals(): React.JSX.Element {
             ))}
           </div>
 
-          {error && (
-            <div className="bg-red-950 border border-red-800 rounded-lg px-4 py-2.5 mb-4">
-              <p className="text-red-400 text-sm">{error}</p>
-            </div>
-          )}
-
           <button
             onClick={handleSaveAndContinue}
             disabled={saving}
-            className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-gray-800 disabled:text-gray-600 text-white font-semibold py-3 rounded-lg transition-colors text-sm cursor-pointer"
+            className="w-full bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-dim)] disabled:opacity-40 disabled:cursor-not-allowed text-white font-medium py-2.5 rounded text-sm cursor-pointer transition-colors mt-6"
           >
-            {saving ? 'Saving...' : 'Confirm & Start Month →'}
+            {saving ? 'Saving...' : 'Confirm & Start Month ->'}
           </button>
         </div>
       </div>
@@ -355,105 +526,83 @@ export default function Goals(): React.JSX.Element {
   }
 
   return (
-    <div className="h-screen w-screen bg-gray-950 overflow-y-auto">
-      <div className="max-w-2xl mx-auto px-6 py-10">
-        <div className="mb-8">
-          <button
-            onClick={() => navigate('/setup')}
-            className="text-gray-600 hover:text-gray-400 text-sm transition-colors cursor-pointer mb-2 block"
-          >
-            ← Setup
-          </button>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Monthly Goals</h1>
-          <p className="text-gray-500 text-sm mt-1">
-            Define exactly 5 goals. Be specific — vague goals produce vague tasks.
-          </p>
-        </div>
+    <div className="h-screen w-screen overflow-y-auto bg-[var(--bg-base)]">
+      <div className="max-w-4xl mx-auto px-8 py-8">
+        <button
+          onClick={() => setView('empty')}
+          className="text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)] cursor-pointer mb-6 flex items-center gap-1"
+        >
+          <ChevronLeft className="w-3.5 h-3.5" />
+          Back
+        </button>
+        <p className="font-mono text-xs text-[var(--text-muted)] mb-1">STEP 1 OF 2 - DEFINE GOALS</p>
+        <h1 className="text-xl font-semibold text-[var(--text-primary)] mb-6">Define Monthly Goals</h1>
 
-        {goalsAlreadySet && (
-          <div className="bg-yellow-950 border border-yellow-800 rounded-xl p-4 mb-6">
-            <p className="text-yellow-400 text-sm font-semibold mb-1">
-              Goals already set for this month.
-            </p>
-            <p className="text-yellow-600 text-xs">
-              You cannot redefine goals mid-month. Come back next month to set new goals.
-            </p>
-            <button
-              onClick={() => navigate('/today')}
-              className="mt-3 text-yellow-400 hover:text-yellow-300 text-xs cursor-pointer transition-colors"
-            >
-              ← Back to Today
-            </button>
-          </div>
-        )}
-
-        <div className="space-y-4 mb-6">
-          {GOAL_SLOTS.map((slot, index) => (
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 mb-6">
+          {goals.map((slot, index) => (
             <div
-              key={index}
-              className={`bg-gray-900 border rounded-xl p-4 transition-colors ${
+              key={slot.id}
+              className={`bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-xl p-5 transition-colors ${
                 goals[index].validationState === 'invalid'
-                  ? 'border-red-800'
+                  ? 'border-l-2 border-l-[var(--accent-red)]'
                   : goals[index].validationState === 'valid'
-                    ? 'border-green-800'
-                    : 'border-gray-800'
+                    ? 'border-l-2 border-l-[var(--accent-green)]'
+                    : goals[index].validationState === 'validating'
+                      ? 'border-l-2 border-l-[var(--accent-blue)]'
+                      : ''
               }`}
             >
               <div className="flex items-center justify-between mb-3">
-                <span className="text-white text-sm font-semibold">{slot.label}</span>
-                <div className="flex items-center gap-2">
-                  {goals[index].validationState === 'validating' && (
-                    <span className="text-yellow-500 text-xs">Checking...</span>
-                  )}
-                  {goals[index].validationState === 'valid' && (
-                    <span className="text-green-500 text-xs">✓ Valid</span>
-                  )}
-                  {goals[index].validationState === 'invalid' && (
-                    <span className="text-red-400 text-xs">✕ Needs revision</span>
-                  )}
-                  <span
-                    className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${TYPE_BADGE[slot.type]}`}
-                  >
-                    {slot.type}
-                  </span>
-                </div>
+                <span className={TYPE_BADGE[slot.type]}>{slot.type}</span>
+                <span className="font-mono text-xs text-[var(--text-muted)]">
+                  {String(index + 1).padStart(2, '0')}
+                </span>
               </div>
               <input
                 type="text"
                 value={goals[index].title}
                 onChange={(e) => updateGoalTitle(index, e.target.value)}
                 placeholder={slot.placeholder}
-                className="w-full bg-gray-950 border border-gray-800 rounded-lg px-4 py-2.5 text-white text-sm placeholder-gray-700 focus:outline-none focus:border-blue-500 transition-colors"
+                className="w-full bg-[var(--bg-base)] border border-[var(--border-default)] focus:border-[var(--border-active)] rounded px-3 py-2 text-sm text-[var(--text-primary)] outline-none mt-3"
               />
+              {goals[index].validationState === 'idle' && (
+                <p className="text-xs text-[var(--text-secondary)] mt-2">{slot.label}</p>
+              )}
               {goals[index].validationNote && (
                 <div className="mt-2">
                   <p
                     className={`text-xs ${
-                      goals[index].validationState === 'invalid' ? 'text-red-400' : 'text-green-500'
+                      goals[index].validationState === 'invalid'
+                        ? 'text-[var(--accent-red)] mt-2'
+                        : goals[index].validationState === 'valid'
+                          ? 'text-[var(--accent-green)] mt-2'
+                          : 'text-[var(--text-secondary)] mt-2'
                     }`}
                   >
-                    {goals[index].validationNote}
+                    {goals[index].validationState === 'valid'
+                      ? `✓ ${goals[index].validationNote}`
+                      : goals[index].validationNote}
                   </p>
                   {goals[index].validationState === 'invalid' && goals[index].suggestedFix && (
-                    <div className="mt-2 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2">
-                      <p className="text-gray-400 text-xs mb-1.5">AI suggestion:</p>
-                      <p className="text-white text-xs mb-2">{goals[index].suggestedFix}</p>
-                      <button
-                        onClick={() => {
-                          const clean = goals[index]
-                            .suggestedFix!.replace(/^["']|["']$/g, '')
-                            .trim()
-                          updateGoalTitle(index, clean)
-                          setGoals((prev) =>
-                            prev.map((g, i) =>
-                              i === index ? { ...g, aiSuggestionUsed: true } : g,
-                            ),
-                          )
-                        }}
-                        className="text-blue-400 hover:text-blue-300 text-xs cursor-pointer transition-colors"
-                      >
-                        Use this suggestion →
-                      </button>
+                    <div className="mt-2">
+                      <p className="inline-flex items-center gap-1 text-xs text-[var(--accent-yellow)]">
+                        <Sparkles className="w-3 h-3" /> AI suggestion
+                      </p>
+                      <div className="bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded p-3 mt-2 text-xs text-[var(--text-secondary)]">
+                        <p className="mb-2">{goals[index].suggestedFix}</p>
+                        <button
+                          onClick={() => {
+                            const clean = goals[index].suggestedFix!.replace(/^["']|["']$/g, '').trim()
+                            updateGoalTitle(index, clean)
+                            setGoals((prev) =>
+                              prev.map((g, i) => (i === index ? { ...g, aiSuggestionUsed: true } : g)),
+                            )
+                          }}
+                          className="text-[var(--accent-blue)] hover:text-blue-300 cursor-pointer"
+                        >
+                          Use this {'->'}
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -462,18 +611,16 @@ export default function Goals(): React.JSX.Element {
           ))}
         </div>
 
-        {error && (
-          <div className="bg-red-950 border border-red-800 rounded-lg px-4 py-2.5 mb-4">
-            <p className="text-red-400 text-sm">{error}</p>
-          </div>
-        )}
-
         <button
           onClick={handleValidateAndContinue}
-          disabled={validating || goalsAlreadySet}
-          className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-gray-800 disabled:text-gray-600 text-white font-semibold py-3 rounded-lg transition-colors text-sm cursor-pointer"
+          disabled={validating}
+          className="w-full bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-dim)] disabled:opacity-40 disabled:cursor-not-allowed text-white font-medium py-2.5 rounded text-sm cursor-pointer transition-colors mt-4"
         >
-          {validating ? 'Validating with AI...' : 'Validate & Generate Subgoals →'}
+          {validating
+            ? 'Validating with AI...'
+            : goals.every((g) => g.validationState === 'valid')
+              ? 'Continue ->'
+              : 'Validate & Generate Subgoals ->'}
         </button>
       </div>
     </div>

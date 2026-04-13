@@ -129,4 +129,9 @@ export function registerReportsHandlers(): void {
 
     return { days, patterns }
   })
+
+  ipcMain.handle('reports:day-log', (_event, date: string) => {
+    const db = getDatabase()
+    return db.prepare('SELECT * FROM day_logs WHERE date = ?').get(date) || null
+  })
 }

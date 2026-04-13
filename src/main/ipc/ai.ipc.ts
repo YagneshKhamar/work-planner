@@ -14,7 +14,11 @@ interface SubgoalSuggestion {
 async function callAI(prompt: string, systemPrompt: string): Promise<string> {
   const db = getDatabase()
   const config = db.prepare('SELECT * FROM config WHERE id = 1').get() as
-    | Record<string, string>
+    | (Record<string, string> & {
+        ollama_model?: string
+        ollama_base_url?: string
+        openrouter_model?: string
+      })
     | undefined
 
   if (!config) throw new Error('No config found. Complete setup first.')
@@ -44,7 +48,9 @@ async function callAI(prompt: string, systemPrompt: string): Promise<string> {
     }
     if (data.error) throw new Error(data.error.message)
     return data.choices[0].message.content
-  } else {
+  }
+
+  if (provider === 'anthropic') {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -66,6 +72,58 @@ async function callAI(prompt: string, systemPrompt: string): Promise<string> {
     if (data.error) throw new Error(data.error.message)
     return data.content[0].text
   }
+
+  if (provider === 'ollama') {
+    const model = config.ollama_model || 'llama3'
+    const baseUrl = config.ollama_base_url || 'http://localhost:11434'
+    const response = await fetch(`${baseUrl}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model,
+        stream: false,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: prompt },
+        ],
+      }),
+    })
+    const data = (await response.json()) as {
+      message: { content: string }
+      error?: string
+    }
+    if (data.error) throw new Error(data.error)
+    return data.message.content
+  }
+
+  if (provider === 'openrouter') {
+    const model = config.openrouter_model || 'mistralai/mistral-7b-instruct'
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+        'HTTP-Referer': 'https://execd.app',
+        'X-Title': 'Execd',
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: prompt },
+        ],
+        temperature: 0.3,
+      }),
+    })
+    const data = (await response.json()) as {
+      choices: { message: { content: string } }[]
+      error?: { message: string }
+    }
+    if (data.error) throw new Error(data.error.message)
+    return data.choices[0].message.content
+  }
+
+  throw new Error(`Unknown provider: ${provider}`)
 }
 
 export async function generateEndOfDayFeedback(context: {

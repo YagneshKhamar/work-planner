@@ -1,5 +1,5 @@
 appId: com.electron.app
-productName: work-planner
+productName: execd
 directories:
   buildResources: build
 files:
@@ -12,7 +12,7 @@ files:
 asarUnpack:
   - resources/**
 win:
-  executableName: work-planner
+  executableName: execd
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}

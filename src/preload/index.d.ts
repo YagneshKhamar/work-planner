@@ -62,6 +62,12 @@ export interface IElectronAPI {
       }[]
       patterns: { title: string; miss_count: number }[]
     }>
+    dayLog: (date: string) => Promise<{
+      execution_score: number
+      ai_feedback: string
+      tasks_completed: number
+      tasks_missed: number
+    } | null>
   }
   overlay: {
     openMain: () => Promise<void>

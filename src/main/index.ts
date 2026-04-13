@@ -93,9 +93,9 @@ function createOverlayWindow(): BrowserWindow {
   })
 
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    win.loadURL(`${process.env['ELECTRON_RENDERER_URL']}#/overlay`)
+    win.loadURL(`${process.env['ELECTRON_RENDERER_URL']}/overlay.html`)
   } else {
-    win.loadFile(join(__dirname, '../renderer/index.html'), { hash: '/overlay' })
+    win.loadFile(join(__dirname, '../renderer/overlay.html'))
   }
 
   return win
@@ -168,7 +168,7 @@ function fireTaskCheckNotification(): void {
 }
 
 app.whenReady().then(() => {
-  electronApp.setAppUserModelId('com.work-planner')
+  electronApp.setAppUserModelId('com.execd')
 
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
