@@ -1,5 +1,6 @@
 import { app, shell, BrowserWindow, ipcMain, Tray, Menu, nativeImage, Notification } from 'electron'
 import { join } from 'path'
+import { existsSync } from 'fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { getDatabase, closeDatabase } from './db/database'
 import { registerConfigHandlers } from './ipc/config.ipc'
@@ -12,6 +13,12 @@ let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 let overlayWindow: BrowserWindow | null = null
 
+function getAppIconPath(): string {
+  const logoPath = join(__dirname, '../../resources/logo.png')
+  if (existsSync(logoPath)) return logoPath
+  return join(__dirname, '../../resources/icon.png')
+}
+
 function createMainWindow(): BrowserWindow {
   const win = new BrowserWindow({
     width: 1100,
@@ -20,6 +27,7 @@ function createMainWindow(): BrowserWindow {
     minHeight: 600,
     show: false,
     autoHideMenuBar: true,
+    icon: getAppIconPath(),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
@@ -86,6 +94,7 @@ function createOverlayWindow(): BrowserWindow {
     resizable: false,
     skipTaskbar: true,
     show: false,
+    icon: getAppIconPath(),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
@@ -102,7 +111,7 @@ function createOverlayWindow(): BrowserWindow {
 }
 
 function createTray(): void {
-  const icon = nativeImage.createFromPath(join(__dirname, '../../resources/icon.png'))
+  const icon = nativeImage.createFromPath(getAppIconPath())
   tray = new Tray(icon.resize({ width: 16, height: 16 }))
 
   const contextMenu = Menu.buildFromTemplate([
