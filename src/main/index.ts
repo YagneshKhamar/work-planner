@@ -1,13 +1,14 @@
-import { app, shell, BrowserWindow, ipcMain, Tray, Menu, nativeImage, Notification } from 'electron'
-import { join } from 'path'
+import { electronApp, is, optimizer } from '@electron-toolkit/utils'
+import { app, BrowserWindow, ipcMain, Menu, nativeImage, Notification, shell, Tray } from 'electron'
 import { existsSync } from 'fs'
-import { electronApp, optimizer, is } from '@electron-toolkit/utils'
-import { getDatabase, closeDatabase } from './db/database'
-import { registerConfigHandlers } from './ipc/config.ipc'
+import { join } from 'path'
+import { closeDatabase, getDatabase } from './db/database'
 import { registerAIHandlers } from './ipc/ai.ipc'
+import { registerConfigHandlers } from './ipc/config.ipc'
 import { registerGoalsHandlers } from './ipc/goals.ipc'
-import { registerTasksHandlers } from './ipc/tasks.ipc'
 import { registerReportsHandlers } from './ipc/reports.ipc'
+import { registerTasksHandlers } from './ipc/tasks.ipc'
+import { registerTeamHandlers } from './ipc/team.ipc'
 
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
@@ -111,12 +112,20 @@ function createOverlayWindow(): BrowserWindow {
 }
 
 function createTray(): void {
-  const icon = nativeImage.createFromPath(getAppIconPath())
-  tray = new Tray(icon.resize({ width: 16, height: 16 }))
+  let icon = nativeImage.createFromPath(getAppIconPath())
+
+  // Windows tray needs exact 16x16 or 32x32, createEmpty as fallback
+  if (icon.isEmpty()) {
+    icon = nativeImage.createEmpty()
+  } else {
+    icon = icon.resize({ width: 16, height: 16 })
+  }
+
+  tray = new Tray(icon)
 
   const contextMenu = Menu.buildFromTemplate([
     {
-      label: 'Open Work Planner',
+      label: 'Open Execd',
       click: () => {
         mainWindow?.show()
         mainWindow?.focus()
@@ -140,7 +149,7 @@ function createTray(): void {
     },
   ])
 
-  tray.setToolTip('Work Planner')
+  tray.setToolTip('Execd')
   tray.setContextMenu(contextMenu)
 
   tray.on('click', () => {
@@ -157,23 +166,40 @@ function fireTaskCheckNotification(): void {
     | { locked: number }
     | undefined
 
-  if (!plan || plan.locked !== 1) return
+  if (plan && plan.locked === 1) {
+    const rows = db
+      .prepare("SELECT status FROM tasks WHERE scheduled_date = ? AND status != 'dropped'")
+      .all(today) as { status: string }[]
 
-  const rows = db
-    .prepare("SELECT status FROM tasks WHERE scheduled_date = ? AND status != 'dropped'")
-    .all(today) as { status: string }[]
+    if (rows.length > 0) {
+      const total = rows.length
+      const completed = rows.filter((r) => r.status === 'completed').length
+      const pending = total - completed
+      const score = Math.round((completed / total) * 100)
 
-  if (rows.length === 0) return
+      new Notification({
+        title: 'Execd — Task Check',
+        body: `${pending} task${pending !== 1 ? 's' : ''} remaining (${score}% complete)`,
+      }).show()
+    }
+  }
 
-  const total = rows.length
-  const completed = rows.filter((r) => r.status === 'completed').length
-  const pending = total - completed
-  const score = Math.round((completed / total) * 100)
+  // Team follow-up reminder
+  const pendingFollowups = db
+    .prepare(
+      `
+    SELECT COUNT(*) as count FROM team_followups 
+    WHERE scheduled_date = ? AND done = 0
+  `,
+    )
+    .get(today) as { count: number }
 
-  new Notification({
-    title: 'ExecOS — Task Check',
-    body: `${pending} task${pending !== 1 ? 's' : ''} remaining (${score}% complete)`,
-  }).show()
+  if (pendingFollowups.count > 0) {
+    new Notification({
+      title: 'Execd — Follow-up Reminder',
+      body: `${pendingFollowups.count} team follow-up${pendingFollowups.count !== 1 ? 's' : ''} pending today`,
+    }).show()
+  }
 }
 
 app.whenReady().then(() => {
@@ -191,6 +217,7 @@ app.whenReady().then(() => {
   registerAIHandlers()
   registerTasksHandlers()
   registerReportsHandlers()
+  registerTeamHandlers()
 
   ipcMain.handle('overlay:open-main', () => {
     mainWindow?.show()

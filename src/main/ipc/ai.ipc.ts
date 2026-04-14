@@ -97,7 +97,7 @@ async function callAI(prompt: string, systemPrompt: string): Promise<string> {
   }
 
   if (provider === 'openrouter') {
-    const model = config.openrouter_model || 'mistralai/mistral-7b-instruct'
+    const model = config.openrouter_model || 'nvidia/nemotron-3-super-120b-a12b:free'
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -115,6 +115,7 @@ async function callAI(prompt: string, systemPrompt: string): Promise<string> {
         temperature: 0.3,
       }),
     })
+
     const data = (await response.json()) as {
       choices: { message: { content: string } }[]
       error?: { message: string }
@@ -202,6 +203,7 @@ Generate 5 subgoals that break this down into concrete 1-2 week deliverables.`
         subgoals: { id: string; title: string; priority: string }[]
         carryOvers: { title: string; effort: string }[]
         behaviorFlags: string[]
+        maxTasks?: number
       },
     ) => {
       const systemPrompt = `You are an execution coach generating daily tasks.
@@ -217,7 +219,8 @@ Rules:
 Active subgoals: ${JSON.stringify(context.subgoals)}
 Carry-over tasks: ${JSON.stringify(context.carryOvers)}
 Behavior flags: ${context.behaviorFlags.join(', ') || 'none'}
-Generate 3-5 tasks. Max 2 carry-overs. Prioritize high-priority subgoals.`
+Generate ${context.maxTasks || 5} tasks (minimum 3, maximum ${context.maxTasks || 5}).
+Max 2 carry-overs. Prioritize high-priority subgoals.`
 
       try {
         const raw = await callAI(prompt, systemPrompt)

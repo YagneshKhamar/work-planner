@@ -52,6 +52,22 @@ contextBridge.exposeInMainWorld('api', {
     year: (year: string) => ipcRenderer.invoke('reports:year', year),
     analytics: (days: number) => ipcRenderer.invoke('reports:analytics', days),
   },
+  team: {
+    getMembers: () => ipcRenderer.invoke('team:get-members'),
+    addMember: (data: unknown) => ipcRenderer.invoke('team:add-member', data),
+    removeMember: (id: string) => ipcRenderer.invoke('team:remove-member', id),
+    getTasks: (memberId: string, weekStart: string) =>
+      ipcRenderer.invoke('team:get-tasks', memberId, weekStart),
+    getAllTasks: (weekStart: string) => ipcRenderer.invoke('team:get-all-tasks', weekStart),
+    addTask: (data: unknown) => ipcRenderer.invoke('team:add-task', data),
+    updateTaskStatus: (taskId: string, status: string, proof?: string) =>
+      ipcRenderer.invoke('team:update-task-status', taskId, status, proof),
+    addNote: (taskId: string, note: string) => ipcRenderer.invoke('team:add-note', taskId, note),
+    getFollowups: (date: string) => ipcRenderer.invoke('team:get-followups', date),
+    addFollowup: (data: unknown) => ipcRenderer.invoke('team:add-followup', data),
+    completeFollowup: (id: string) => ipcRenderer.invoke('team:complete-followup', id),
+    getOverdue: () => ipcRenderer.invoke('team:get-overdue'),
+  },
   overlay: {
     openMain: () => ipcRenderer.invoke('overlay:open-main'),
     hide: () => ipcRenderer.invoke('overlay:hide'),

@@ -58,7 +58,8 @@ export default function Analytics(): React.JSX.Element {
     const firstHalf = trend.slice(0, Math.floor(trend.length / 2))
     const secondHalf = trend.slice(Math.floor(trend.length / 2))
     const firstAvg = firstHalf.reduce((s, d) => s + d.execution_score, 0) / (firstHalf.length || 1)
-    const secondAvg = secondHalf.reduce((s, d) => s + d.execution_score, 0) / (secondHalf.length || 1)
+    const secondAvg =
+      secondHalf.reduce((s, d) => s + d.execution_score, 0) / (secondHalf.length || 1)
     const trendDir =
       secondAvg > firstAvg + 0.05 ? 'improving' : secondAvg < firstAvg - 0.05 ? 'declining' : 'flat'
 
@@ -67,7 +68,8 @@ export default function Analytics(): React.JSX.Element {
     const topMissedSlot =
       [...data.bySlot].sort((a, b) => Number(b.missed) - Number(a.missed))[0]?.slot ?? 'none'
     const carryRate =
-      data.carryTrend.filter((d) => Number(d.tasks_carried) > 0).length / (data.carryTrend.length || 1)
+      data.carryTrend.filter((d) => Number(d.tasks_carried) > 0).length /
+      (data.carryTrend.length || 1)
 
     setLoadingInsight(true)
     setInsight(null)
@@ -93,12 +95,17 @@ export default function Analytics(): React.JSX.Element {
 
   const effortData = useMemo(() => {
     const order = ['light', 'medium', 'heavy']
-    return order.map((effort) => data?.byEffort.find((row) => row.effort === effort) ?? { effort, completed: 0, missed: 0 })
+    return order.map(
+      (effort) =>
+        data?.byEffort.find((row) => row.effort === effort) ?? { effort, completed: 0, missed: 0 },
+    )
   }, [data])
 
   const slotData = useMemo(() => {
     const order = ['morning', 'afternoon', 'anytime']
-    return order.map((slot) => data?.bySlot.find((row) => row.slot === slot) ?? { slot, completed: 0, missed: 0 })
+    return order.map(
+      (slot) => data?.bySlot.find((row) => row.slot === slot) ?? { slot, completed: 0, missed: 0 },
+    )
   }, [data])
 
   if (loading) {
@@ -144,7 +151,9 @@ export default function Analytics(): React.JSX.Element {
             <p className="text-xs text-[var(--text-muted)] font-mono">Analyzing...</p>
           ) : insight ? (
             <>
-              <h2 className="text-base font-semibold text-[var(--text-primary)] mb-1">{insight.heading}</h2>
+              <h2 className="text-base font-semibold text-[var(--text-primary)] mb-1">
+                {insight.heading}
+              </h2>
               <p className="text-sm text-[var(--text-secondary)] leading-relaxed">{insight.body}</p>
             </>
           ) : (
@@ -160,9 +169,18 @@ export default function Analytics(): React.JSX.Element {
             <LineChart data={data?.trend ?? []}>
               <CartesianGrid strokeDasharray="3 3" stroke="#1f1f1f" />
               <XAxis dataKey="date" tickFormatter={formatDayLabel} interval="preserveStartEnd" />
-              <YAxis domain={[0, 1]} tickFormatter={(v: number) => `${Math.round(v * 100)}%`} width={40} />
+              <YAxis
+                domain={[0, 1]}
+                tickFormatter={(v: number) => `${Math.round(v * 100)}%`}
+                width={40}
+              />
               <Tooltip
-                contentStyle={{ background: '#111', border: '1px solid #2a2a2a', borderRadius: 4, fontSize: 12 }}
+                contentStyle={{
+                  background: '#111',
+                  border: '1px solid #2a2a2a',
+                  borderRadius: 4,
+                  fontSize: 12,
+                }}
                 formatter={(v: unknown) => [`${Math.round(Number(v ?? 0) * 100)}%`, 'Score']}
                 labelFormatter={(l) => String(l)}
               />
@@ -180,7 +198,14 @@ export default function Analytics(): React.JSX.Element {
               <CartesianGrid strokeDasharray="3 3" stroke="#1f1f1f" />
               <XAxis dataKey="date" tickFormatter={formatDayLabel} interval="preserveStartEnd" />
               <YAxis allowDecimals={false} width={30} />
-              <Tooltip contentStyle={{ background: '#111', border: '1px solid #2a2a2a', borderRadius: 4, fontSize: 12 }} />
+              <Tooltip
+                contentStyle={{
+                  background: '#111',
+                  border: '1px solid #2a2a2a',
+                  borderRadius: 4,
+                  fontSize: 12,
+                }}
+              />
               <Bar dataKey="tasks_completed" fill="#16a34a" name="Done" radius={[2, 2, 0, 0]} />
               <Bar dataKey="tasks_missed" fill="#dc2626" name="Missed" radius={[2, 2, 0, 0]} />
             </BarChart>
@@ -188,7 +213,9 @@ export default function Analytics(): React.JSX.Element {
         </div>
 
         <div className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded p-5 mb-4">
-          <p className="font-mono text-xs text-[var(--text-muted)] uppercase tracking-widest mb-4">BY EFFORT</p>
+          <p className="font-mono text-xs text-[var(--text-muted)] uppercase tracking-widest mb-4">
+            BY EFFORT
+          </p>
           <ResponsiveContainer width="100%" height={140}>
             <BarChart data={effortData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#1f1f1f" />
@@ -197,7 +224,14 @@ export default function Analytics(): React.JSX.Element {
                 tickFormatter={(v: string) => `${v.charAt(0).toUpperCase()}${v.slice(1)}`}
               />
               <YAxis allowDecimals={false} width={30} />
-              <Tooltip contentStyle={{ background: '#111', border: '1px solid #2a2a2a', borderRadius: 4, fontSize: 12 }} />
+              <Tooltip
+                contentStyle={{
+                  background: '#111',
+                  border: '1px solid #2a2a2a',
+                  borderRadius: 4,
+                  fontSize: 12,
+                }}
+              />
               <Bar dataKey="completed" fill="#16a34a" name="Done" radius={[2, 2, 0, 0]} />
               <Bar dataKey="missed" fill="#dc2626" name="Missed" radius={[2, 2, 0, 0]} />
             </BarChart>
@@ -211,9 +245,19 @@ export default function Analytics(): React.JSX.Element {
           <ResponsiveContainer width="100%" height={140}>
             <BarChart data={slotData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#1f1f1f" />
-              <XAxis dataKey="slot" tickFormatter={(v: string) => `${v.charAt(0).toUpperCase()}${v.slice(1)}`} />
+              <XAxis
+                dataKey="slot"
+                tickFormatter={(v: string) => `${v.charAt(0).toUpperCase()}${v.slice(1)}`}
+              />
               <YAxis allowDecimals={false} width={30} />
-              <Tooltip contentStyle={{ background: '#111', border: '1px solid #2a2a2a', borderRadius: 4, fontSize: 12 }} />
+              <Tooltip
+                contentStyle={{
+                  background: '#111',
+                  border: '1px solid #2a2a2a',
+                  borderRadius: 4,
+                  fontSize: 12,
+                }}
+              />
               <Bar dataKey="completed" fill="#16a34a" name="Done" radius={[2, 2, 0, 0]} />
               <Bar dataKey="missed" fill="#dc2626" name="Missed" radius={[2, 2, 0, 0]} />
             </BarChart>
@@ -229,7 +273,14 @@ export default function Analytics(): React.JSX.Element {
               <CartesianGrid strokeDasharray="3 3" stroke="#1f1f1f" />
               <XAxis dataKey="date" tickFormatter={formatDayLabel} interval="preserveStartEnd" />
               <YAxis allowDecimals={false} domain={[0, 'auto']} width={30} />
-              <Tooltip contentStyle={{ background: '#111', border: '1px solid #2a2a2a', borderRadius: 4, fontSize: 12 }} />
+              <Tooltip
+                contentStyle={{
+                  background: '#111',
+                  border: '1px solid #2a2a2a',
+                  borderRadius: 4,
+                  fontSize: 12,
+                }}
+              />
               <Line dataKey="tasks_carried" stroke="#ea580c" strokeWidth={2} dot={false} />
             </LineChart>
           </ResponsiveContainer>

@@ -60,10 +60,6 @@ export function registerTasksHandlers(): void {
       }[],
     ) => {
       const db = getDatabase()
-      db.prepare('DELETE FROM tasks WHERE scheduled_date = ? AND status = ?').run(
-        tasks[0].scheduled_date,
-        'pending',
-      )
 
       const insert = db.prepare(`
       INSERT INTO tasks (

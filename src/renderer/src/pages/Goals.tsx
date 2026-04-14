@@ -79,7 +79,10 @@ function buildGoalSlots(counts: {
       'e.g. Ship v1 of the mobile app',
     ],
     personal: ['e.g. Read 2 books on systems thinking', 'e.g. Exercise 4 times per week'],
-    family: ['e.g. Plan and take a weekend trip with family', 'e.g. Set weekly family dinner routine'],
+    family: [
+      'e.g. Plan and take a weekend trip with family',
+      'e.g. Set weekly family dinner routine',
+    ],
   }
 
   const createForType = (type: GoalType, count: number): GoalInput[] =>
@@ -346,7 +349,10 @@ export default function Goals(): React.JSX.Element {
     }
   }
 
-  const totalSubgoals = savedGoals.reduce((sum, goal) => sum + (subgoalMap[goal.id]?.length ?? 0), 0)
+  const totalSubgoals = savedGoals.reduce(
+    (sum, goal) => sum + (subgoalMap[goal.id]?.length ?? 0),
+    0,
+  )
   const toValidate = goals.filter(
     (g) => g.title.trim() && !(g.validationState === 'valid' && g.title === g.lastValidatedTitle),
   ).length
@@ -368,8 +374,8 @@ export default function Goals(): React.JSX.Element {
           </div>
           <h1 className="text-2xl font-semibold text-[var(--text-primary)] mb-2">No goals set</h1>
           <p className="text-sm text-[var(--text-secondary)] mb-7 text-center max-w-md mx-auto leading-relaxed">
-            Define your monthly goals to generate daily tasks. You need goals before the app can plan
-            your day.
+            Define your monthly goals to generate daily tasks. You need goals before the app can
+            plan your day.
           </p>
           <div className="flex flex-wrap justify-center gap-2 mb-6">
             <span className="font-mono text-xs px-3 py-1.5 rounded border border-blue-500/30 text-blue-400 bg-blue-500/10">
@@ -399,8 +405,12 @@ export default function Goals(): React.JSX.Element {
         <div className="max-w-4xl mx-auto px-8 py-8">
           <div className="flex justify-between items-center mb-6">
             <div>
-              <p className="font-mono text-xs tracking-widest text-[var(--text-muted)] uppercase">GOALS</p>
-              <p className="font-mono text-xs text-[var(--text-muted)] mt-1">{getMonthLabel(month)}</p>
+              <p className="font-mono text-xs tracking-widest text-[var(--text-muted)] uppercase">
+                GOALS
+              </p>
+              <p className="font-mono text-xs text-[var(--text-muted)] mt-1">
+                {getMonthLabel(month)}
+              </p>
               <h1 className="text-xl font-semibold text-[var(--text-primary)] mt-1">Goals Set</h1>
             </div>
             <p className="text-xs text-[var(--text-muted)] font-mono">
@@ -447,8 +457,12 @@ export default function Goals(): React.JSX.Element {
                                   : 'bg-[var(--text-muted)]'
                             }`}
                           />
-                          <p className="text-sm text-[var(--text-secondary)] flex-1">{subgoal.title}</p>
-                          <span className={PRIORITY_COLORS[subgoal.priority]}>{subgoal.priority}</span>
+                          <p className="text-sm text-[var(--text-secondary)] flex-1">
+                            {subgoal.title}
+                          </p>
+                          <span className={PRIORITY_COLORS[subgoal.priority]}>
+                            {subgoal.priority}
+                          </span>
                         </div>
                       ))
                     ) : (
@@ -472,7 +486,9 @@ export default function Goals(): React.JSX.Element {
     return (
       <div className="h-full w-full overflow-y-auto bg-[var(--bg-base)]">
         <div className="max-w-4xl mx-auto px-8 py-8">
-          <p className="font-mono text-xs text-[var(--text-muted)] mb-1">STEP 2 OF 2 - REVIEW SUBGOALS</p>
+          <p className="font-mono text-xs text-[var(--text-muted)] mb-1">
+            STEP 2 OF 2 - REVIEW SUBGOALS
+          </p>
           <h1 className="text-xl font-semibold text-[var(--text-primary)] mb-6">Review Subgoals</h1>
 
           <div className="space-y-5 mb-6">
@@ -494,7 +510,9 @@ export default function Goals(): React.JSX.Element {
                 </div>
 
                 {goal.loadingSubgoals ? (
-                  <div className="text-[var(--text-muted)] text-xs py-2">Generating subgoals...</div>
+                  <div className="text-[var(--text-muted)] text-xs py-2">
+                    Generating subgoals...
+                  </div>
                 ) : (
                   <div>
                     {goal.subgoals.map((sub, si) => (
@@ -559,8 +577,12 @@ export default function Goals(): React.JSX.Element {
           <ChevronLeft className="w-3.5 h-3.5" />
           Back
         </button>
-        <p className="font-mono text-xs text-[var(--text-muted)] mb-1">STEP 1 OF 2 - DEFINE GOALS</p>
-        <h1 className="text-xl font-semibold text-[var(--text-primary)] mb-6">Define Monthly Goals</h1>
+        <p className="font-mono text-xs text-[var(--text-muted)] mb-1">
+          STEP 1 OF 2 - DEFINE GOALS
+        </p>
+        <h1 className="text-xl font-semibold text-[var(--text-primary)] mb-6">
+          Define Monthly Goals
+        </h1>
 
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 mb-6">
           {goals.map((slot, index) => (
@@ -616,10 +638,14 @@ export default function Goals(): React.JSX.Element {
                         <p className="mb-2">{goals[index].suggestedFix}</p>
                         <button
                           onClick={() => {
-                            const clean = goals[index].suggestedFix!.replace(/^["']|["']$/g, '').trim()
+                            const clean = goals[index]
+                              .suggestedFix!.replace(/^["']|["']$/g, '')
+                              .trim()
                             updateGoalTitle(index, clean)
                             setGoals((prev) =>
-                              prev.map((g, i) => (i === index ? { ...g, aiSuggestionUsed: true } : g)),
+                              prev.map((g, i) =>
+                                i === index ? { ...g, aiSuggestionUsed: true } : g,
+                              ),
                             )
                           }}
                           className="text-[var(--accent-blue)] hover:text-blue-300 cursor-pointer"
@@ -640,7 +666,11 @@ export default function Goals(): React.JSX.Element {
           disabled={validating || toValidate === 0}
           className="w-full bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-dim)] disabled:opacity-40 disabled:cursor-not-allowed text-white font-medium py-2.5 rounded text-sm cursor-pointer transition-colors mt-4"
         >
-          {validating ? 'Validating with AI...' : toValidate === 0 ? 'All Validated ✓' : `Validate (${toValidate})`}
+          {validating
+            ? 'Validating with AI...'
+            : toValidate === 0
+              ? 'All Validated ✓'
+              : `Validate (${toValidate})`}
         </button>
       </div>
     </div>

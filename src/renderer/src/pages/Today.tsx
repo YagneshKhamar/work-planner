@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { CheckCircle } from 'lucide-react'
+import { CheckCircle, Users } from 'lucide-react'
 import { useToast } from '../components/Toast'
 
 interface Task {
@@ -23,6 +23,17 @@ interface DayPlan {
   replan_used: number
 }
 
+interface GoalItem {
+  id: string
+  type: 'business' | 'personal' | 'family'
+}
+
+interface SubgoalOption {
+  id: string
+  title: string
+  goalType: 'business' | 'personal' | 'family'
+}
+
 const EFFORT_LABELS = { light: '30m', medium: '1h', heavy: '2h' }
 const EFFORT_COLORS = {
   light:
@@ -39,6 +50,12 @@ function getToday(): string {
 
 function getCurrentMonth(): string {
   return new Date().toISOString().slice(0, 7)
+}
+
+function getTomorrow(): string {
+  const tomorrow = new Date()
+  tomorrow.setDate(tomorrow.getDate() + 1)
+  return tomorrow.toISOString().slice(0, 10)
 }
 
 export default function Today(): React.JSX.Element {
@@ -60,11 +77,61 @@ export default function Today(): React.JSX.Element {
     score: number
     feedback: string
   } | null>(null)
+  const [showAddTask, setShowAddTask] = useState(false)
+  const [addingForDate, setAddingForDate] = useState<'today' | 'tomorrow'>('today')
+  const [newTask, setNewTask] = useState({
+    title: '',
+    effort: 'medium' as 'light' | 'medium' | 'heavy',
+    proof_type: 'none' as 'none' | 'comment' | 'link',
+    scheduled_time_slot: 'anytime' as 'morning' | 'afternoon' | 'anytime',
+  })
+  const [addingTask, setAddingTask] = useState(false)
+  const [selectedSubgoalId, setSelectedSubgoalId] = useState('')
+  const [subgoalOptions, setSubgoalOptions] = useState<SubgoalOption[]>([])
+  const [followupCount, setFollowupCount] = useState(0)
   const { error, success } = useToast()
 
   useEffect(() => {
     loadTodayData()
+    loadFollowupCount()
   }, [])
+
+  async function loadFollowupCount(): Promise<void> {
+    try {
+      const followups = (await window.api.team.getFollowups(getToday())) as unknown[]
+      setFollowupCount(followups.length)
+    } catch {
+      setFollowupCount(0)
+    }
+  }
+
+  useEffect(() => {
+    async function loadSubgoalsForModal(): Promise<void> {
+      if (!showAddTask) return
+      try {
+        const goals = (await window.api.goals.get(getCurrentMonth())) as GoalItem[]
+        const options: SubgoalOption[] = []
+        for (const goal of goals) {
+          const subs = (await window.api.subgoals.getByGoal(goal.id)) as {
+            id: string
+            title: string
+          }[]
+          options.push(
+            ...subs.map((sub) => ({
+              id: sub.id,
+              title: sub.title,
+              goalType: goal.type,
+            })),
+          )
+        }
+        setSubgoalOptions(options)
+      } catch (e) {
+        console.error('Failed to load subgoals for add task modal:', e)
+        error('Failed to load subgoals.')
+      }
+    }
+    loadSubgoalsForModal()
+  }, [showAddTask, error])
 
   async function loadTodayData(): Promise<void> {
     try {
@@ -123,7 +190,7 @@ export default function Today(): React.JSX.Element {
   async function handleGenerateTasks(): Promise<void> {
     setGenerating(true)
     try {
-      const config = (await window.api.config.get()) as Record<string, string>
+      const config = (await window.api.config.get()) as Record<string, string | number>
       const month = getCurrentMonth()
       const goals = (await window.api.goals.get(month)) as { id: string }[]
 
@@ -147,6 +214,7 @@ export default function Today(): React.JSX.Element {
       const workEnd = config.working_end || '18:00'
       const breakStart = config.break_start || '13:00'
       const breakEnd = config.break_end || '14:00'
+      const maxDailyTasks = Number(config.max_daily_tasks ?? 5)
 
       const [startH, startM] = workStart.split(':').map(Number)
       const [endH, endM] = workEnd.split(':').map(Number)
@@ -164,6 +232,7 @@ export default function Today(): React.JSX.Element {
         subgoals: allSubgoals,
         carryOvers: [],
         behaviorFlags: [],
+        maxTasks: maxDailyTasks || 5,
       })
 
       if (!result.success || !result.data) {
@@ -262,6 +331,41 @@ export default function Today(): React.JSX.Element {
     setCompletingId(null)
   }
 
+  async function handleAddTask(): Promise<void> {
+    if (!newTask.title.trim() || !selectedSubgoalId) return
+    setAddingTask(true)
+    try {
+      const targetDate = addingForDate === 'today' ? getToday() : getTomorrow()
+      await window.api.tasks.saveTasks([
+        {
+          title: newTask.title.trim(),
+          effort: newTask.effort,
+          proof_type: newTask.proof_type,
+          subgoal_id: selectedSubgoalId,
+          scheduled_date: targetDate,
+          scheduled_time_slot: newTask.scheduled_time_slot,
+          status: 'pending',
+        },
+      ])
+      await loadTodayData()
+      await loadFollowupCount()
+      setShowAddTask(false)
+      setNewTask({
+        title: '',
+        effort: 'medium',
+        proof_type: 'none',
+        scheduled_time_slot: 'anytime',
+      })
+      setSelectedSubgoalId('')
+      success(`Task added for ${addingForDate}.`)
+    } catch (e) {
+      console.error('Failed to add task:', e)
+      error('Failed to add task.')
+    } finally {
+      setAddingTask(false)
+    }
+  }
+
   const completedCount = tasks.filter((t) => t.status === 'completed').length
   const totalCount = tasks.length
   const score = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0
@@ -279,11 +383,136 @@ export default function Today(): React.JSX.Element {
   return (
     <div className="h-full w-full overflow-y-auto bg-[var(--bg-base)]">
       <div className="max-w-4xl mx-auto px-8 py-8">
+        {showAddTask && (
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-6">
+            <div className="bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-lg p-6 w-full max-w-sm">
+              <h2 className="text-base font-semibold text-[var(--text-primary)] mb-4">
+                Add Task for {addingForDate === 'today' ? 'Today' : 'Tomorrow'}
+              </h2>
+              <div className="space-y-3">
+                <input
+                  type="text"
+                  value={newTask.title}
+                  onChange={(e) => setNewTask((prev) => ({ ...prev, title: e.target.value }))}
+                  placeholder="What needs to be done?"
+                  className="w-full bg-[var(--bg-base)] border border-[var(--border-default)] focus:border-[var(--border-active)] rounded px-3 py-2 text-sm text-[var(--text-primary)] outline-none"
+                />
+                <div>
+                  <p className="text-xs text-[var(--text-secondary)] mb-1">Effort</p>
+                  <div className="flex gap-1.5">
+                    {(
+                      [
+                        { label: '30m', value: 'light' },
+                        { label: '1h', value: 'medium' },
+                        { label: '2h', value: 'heavy' },
+                      ] as const
+                    ).map((item) => (
+                      <button
+                        key={item.value}
+                        onClick={() => setNewTask((prev) => ({ ...prev, effort: item.value }))}
+                        className={`font-mono text-xs px-3 py-1.5 rounded transition-colors ${
+                          newTask.effort === item.value
+                            ? 'bg-[var(--accent-blue)] text-white border border-[var(--accent-blue)]'
+                            : 'bg-transparent border border-[var(--border-default)] text-[var(--text-secondary)] hover:border-[var(--border-active)] cursor-pointer'
+                        }`}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs text-[var(--text-secondary)] mb-1">Proof type</p>
+                  <div className="flex gap-1.5">
+                    {(
+                      [
+                        { label: 'None', value: 'none' },
+                        { label: 'Comment', value: 'comment' },
+                        { label: 'Link', value: 'link' },
+                      ] as const
+                    ).map((item) => (
+                      <button
+                        key={item.value}
+                        onClick={() => setNewTask((prev) => ({ ...prev, proof_type: item.value }))}
+                        className={`font-mono text-xs px-3 py-1.5 rounded transition-colors ${
+                          newTask.proof_type === item.value
+                            ? 'bg-[var(--accent-blue)] text-white border border-[var(--accent-blue)]'
+                            : 'bg-transparent border border-[var(--border-default)] text-[var(--text-secondary)] hover:border-[var(--border-active)] cursor-pointer'
+                        }`}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs text-[var(--text-secondary)] mb-1">Time slot</p>
+                  <div className="flex gap-1.5">
+                    {(
+                      [
+                        { label: 'Morning', value: 'morning' },
+                        { label: 'Afternoon', value: 'afternoon' },
+                        { label: 'Anytime', value: 'anytime' },
+                      ] as const
+                    ).map((item) => (
+                      <button
+                        key={item.value}
+                        onClick={() =>
+                          setNewTask((prev) => ({ ...prev, scheduled_time_slot: item.value }))
+                        }
+                        className={`font-mono text-xs px-3 py-1.5 rounded transition-colors ${
+                          newTask.scheduled_time_slot === item.value
+                            ? 'bg-[var(--accent-blue)] text-white border border-[var(--accent-blue)]'
+                            : 'bg-transparent border border-[var(--border-default)] text-[var(--text-secondary)] hover:border-[var(--border-active)] cursor-pointer'
+                        }`}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs text-[var(--text-secondary)] mb-1">Subgoal</p>
+                  <select
+                    value={selectedSubgoalId}
+                    onChange={(e) => setSelectedSubgoalId(e.target.value)}
+                    className="w-full bg-[var(--bg-base)] border border-[var(--border-default)] focus:border-[var(--border-active)] rounded px-3 py-2 text-sm text-[var(--text-primary)] outline-none"
+                  >
+                    <option value="">Select subgoal</option>
+                    {subgoalOptions.map((subgoal) => (
+                      <option key={subgoal.id} value={subgoal.id}>
+                        [{subgoal.goalType}] — {subgoal.title}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex gap-2 mt-5">
+                  <button
+                    onClick={() => setShowAddTask(false)}
+                    className="flex-1 bg-transparent border border-[var(--border-default)] hover:border-[var(--border-active)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] font-medium py-2 rounded text-sm cursor-pointer transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleAddTask}
+                    disabled={!newTask.title.trim() || !selectedSubgoalId || addingTask}
+                    className="flex-1 bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-dim)] disabled:opacity-40 disabled:cursor-not-allowed text-white font-medium py-2 rounded text-sm cursor-pointer transition-colors"
+                  >
+                    {addingTask ? 'Adding...' : 'Add Task'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Carry Over Modal */}
         {showCarryOver && missedFromYesterday.length > 0 && (
           <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-6">
             <div className="bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-xl p-6 w-full max-w-sm">
-              <h2 className="text-[var(--text-primary)] font-semibold text-base mb-1">Missed Yesterday</h2>
+              <h2 className="text-[var(--text-primary)] font-semibold text-base mb-1">
+                Missed Yesterday
+              </h2>
               <p className="text-[var(--text-secondary)] text-xs mb-4">
                 You missed {missedFromYesterday.length} task
                 {missedFromYesterday.length > 1 ? 's' : ''} yesterday. Max 2 can carry forward.
@@ -384,7 +613,9 @@ export default function Today(): React.JSX.Element {
               <div className="font-mono text-2xl text-[var(--text-primary)]">
                 {completedCount} / {totalCount}
               </div>
-              <div className="text-xs text-[var(--text-muted)] mt-1 uppercase tracking-wider">tasks</div>
+              <div className="text-xs text-[var(--text-muted)] mt-1 uppercase tracking-wider">
+                tasks
+              </div>
             </div>
             <div className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-xl p-4">
               <div className="font-mono text-2xl text-[var(--text-secondary)]">
@@ -397,9 +628,7 @@ export default function Today(): React.JSX.Element {
             <div className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-xl p-4">
               <div
                 className={`font-mono text-2xl ${
-                  carriedCount > 0
-                    ? 'text-[var(--accent-orange)]'
-                    : 'text-[var(--text-secondary)]'
+                  carriedCount > 0 ? 'text-[var(--accent-orange)]' : 'text-[var(--text-secondary)]'
                 }`}
               >
                 {carriedCount}
@@ -415,11 +644,25 @@ export default function Today(): React.JSX.Element {
         {tasks.length === 0 && (
           <div className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-xl p-8 text-center mb-6">
             <p className="text-[var(--text-secondary)] text-sm mb-1">No tasks for today.</p>
-            <p className="text-[var(--text-muted)] text-xs">Generate your daily plan to get started.</p>
+            <p className="text-[var(--text-muted)] text-xs">
+              Generate your daily plan to get started.
+            </p>
           </div>
         )}
 
         {/* Tasks */}
+        {followupCount > 0 && (
+          <button
+            onClick={() => navigate('/team?tab=followups')}
+            className="w-full bg-[var(--accent-orange)]/5 border border-[var(--accent-orange)]/20 rounded p-3 mb-4 flex items-center gap-2 cursor-pointer transition-colors hover:bg-[var(--accent-orange)]/10"
+          >
+            <Users className="w-4 h-4 text-[var(--accent-orange)]" />
+            <span className="text-sm text-[var(--accent-orange)]">
+              {followupCount} team follow-up{followupCount !== 1 ? 's' : ''} scheduled for today
+            </span>
+          </button>
+        )}
+
         {tasks.length > 0 && (
           <div className="mb-6">
             {tasks.map((task) => (
@@ -439,7 +682,9 @@ export default function Today(): React.JSX.Element {
                         : 'bg-transparent'
                     }`}
                   >
-                    {task.status === 'completed' && <span className="text-[10px] leading-none">✓</span>}
+                    {task.status === 'completed' && (
+                      <span className="text-[10px] leading-none">✓</span>
+                    )}
                   </button>
 
                   <div className="flex-1 min-w-0">
@@ -453,9 +698,7 @@ export default function Today(): React.JSX.Element {
                       >
                         {task.title}
                       </p>
-                      <span
-                        className={`${EFFORT_COLORS[task.effort]} shrink-0`}
-                      >
+                      <span className={`${EFFORT_COLORS[task.effort]} shrink-0`}>
                         {EFFORT_LABELS[task.effort]}
                       </span>
                       <span className="text-xs text-[var(--text-secondary)] capitalize shrink-0">
@@ -478,7 +721,9 @@ export default function Today(): React.JSX.Element {
                     )}
 
                     {task.status === 'completed' && task.proof_value && (
-                      <p className="text-xs text-[var(--text-muted)] mt-1.5 truncate">{task.proof_value}</p>
+                      <p className="text-xs text-[var(--text-muted)] mt-1.5 truncate">
+                        {task.proof_value}
+                      </p>
                     )}
 
                     {showProof[task.id] && task.status !== 'completed' && (
@@ -540,15 +785,42 @@ export default function Today(): React.JSX.Element {
             </button>
           )}
 
-          {isLocked && tasks.length > 0 && !dayEnded && !tasks.every((t) => t.status === 'completed') && (
+          {isLocked && (
             <button
-              onClick={handleEndDay}
-              disabled={endingDay}
-              className="w-full bg-transparent border border-[var(--accent-red)]/30 hover:border-[var(--accent-red)] text-[var(--accent-red)] font-medium py-2.5 rounded text-sm cursor-pointer transition-colors"
+              onClick={() => {
+                setAddingForDate('today')
+                setShowAddTask(true)
+              }}
+              className="w-full bg-transparent border border-[var(--border-default)] hover:border-[var(--border-active)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] font-medium py-2.5 rounded text-sm cursor-pointer transition-colors"
             >
-              {endingDay ? 'Ending day...' : 'End Day'}
+              Add Task Today
             </button>
           )}
+
+          {isLocked && (
+            <button
+              onClick={() => {
+                setAddingForDate('tomorrow')
+                setShowAddTask(true)
+              }}
+              className="w-full bg-transparent border border-[var(--border-subtle)] hover:border-[var(--border-default)] text-[var(--text-muted)] hover:text-[var(--text-secondary)] font-medium py-2.5 rounded text-sm cursor-pointer transition-colors"
+            >
+              Add Task Tomorrow
+            </button>
+          )}
+
+          {isLocked &&
+            tasks.length > 0 &&
+            !dayEnded &&
+            !tasks.every((t) => t.status === 'completed') && (
+              <button
+                onClick={handleEndDay}
+                disabled={endingDay}
+                className="w-full bg-transparent border border-[var(--accent-red)]/30 hover:border-[var(--accent-red)] text-[var(--accent-red)] font-medium py-2.5 rounded text-sm cursor-pointer transition-colors"
+              >
+                {endingDay ? 'Ending day...' : 'End Day'}
+              </button>
+            )}
 
           {dayEnded && endDayResult && (
             <div className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-xl p-5 space-y-3">
@@ -558,7 +830,9 @@ export default function Today(): React.JSX.Element {
                   {Math.round(endDayResult.score * 100)}%
                 </span>
               </div>
-              <p className="text-[var(--text-secondary)] text-xs leading-relaxed">{endDayResult.feedback}</p>
+              <p className="text-[var(--text-secondary)] text-xs leading-relaxed">
+                {endDayResult.feedback}
+              </p>
               <button
                 onClick={() => navigate('/report/daily')}
                 className="text-[var(--accent-blue)] hover:text-[var(--accent-blue-dim)] text-xs cursor-pointer transition-colors"

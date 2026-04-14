@@ -115,6 +115,18 @@ src/
 | Icons         | lucide-react              |
 | Charts        | recharts                  |
 
+## AI Provider Notes
+
+**OpenRouter reasoning models** (DeepSeek R1, Nemotron 3 Super, Qwen3 thinking
+variants) return internal reasoning wrapped in `<think>` tags before the JSON
+response. This can cause JSON parse errors in the app.
+
+If you hit this issue, either:
+
+- Switch to a non-reasoning model (Llama 3.3 70B, Mistral Small, DeepSeek V3)
+- Or add this line to `callAI()` in `src/main/ipc/ai.ipc.ts`:
+  `raw = raw.replace(/<think>[\s\S]*?<\/think>/g, '').trim()`
+
 ## Philosophy
 
 Most founders do not fail because they cannot plan. They fail because nothing enforces execution once the plan exists. Execd is built to close that gap between planning and doing, day after day. No motivational language, no streak systems for vanity, no gamification loop. Proof or it did not happen.

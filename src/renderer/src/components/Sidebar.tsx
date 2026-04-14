@@ -8,6 +8,7 @@ import {
   BarChart2,
   LineChart as LineChartIcon,
   Settings,
+  Users,
 } from 'lucide-react'
 
 const NAV_ITEMS = [
@@ -18,6 +19,7 @@ const NAV_ITEMS = [
   { icon: BarChart2, label: 'Weekly Report', to: '/report/weekly' },
   { icon: Calendar, label: 'Year Report', to: '/report/yearly' },
   { icon: LineChartIcon, label: 'Analytics', to: '/analytics' },
+  { icon: Users, label: 'Team', to: '/team' },
 ]
 
 export default function Sidebar(): React.JSX.Element {
@@ -28,7 +30,7 @@ export default function Sidebar(): React.JSX.Element {
     >
       <div className="px-5 pt-6 pb-4">
         <span className="font-mono text-xs font-semibold tracking-widest text-[var(--text-muted)] uppercase">
-          ExecOS
+          Execd
         </span>
       </div>
 

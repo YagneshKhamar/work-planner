@@ -116,6 +116,24 @@ export interface IElectronAPI {
       }[]
     }>
   }
+  team: {
+    getMembers: () => Promise<unknown[]>
+    addMember: (data: unknown) => Promise<{ success: boolean; id?: string }>
+    removeMember: (id: string) => Promise<{ success: boolean; id?: string }>
+    getTasks: (memberId: string, weekStart: string) => Promise<unknown[]>
+    getAllTasks: (weekStart: string) => Promise<unknown[]>
+    addTask: (data: unknown) => Promise<{ success: boolean; id?: string }>
+    updateTaskStatus: (
+      taskId: string,
+      status: string,
+      proof?: string,
+    ) => Promise<{ success: boolean; id?: string }>
+    addNote: (taskId: string, note: string) => Promise<{ success: boolean; id?: string }>
+    getFollowups: (date: string) => Promise<unknown[]>
+    addFollowup: (data: unknown) => Promise<{ success: boolean; id?: string }>
+    completeFollowup: (id: string) => Promise<{ success: boolean; id?: string }>
+    getOverdue: () => Promise<unknown[]>
+  }
   overlay: {
     openMain: () => Promise<void>
     hide: () => Promise<void>

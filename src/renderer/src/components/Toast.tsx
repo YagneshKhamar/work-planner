@@ -32,8 +32,7 @@ const ICONS = {
 
 const STYLES = {
   error: 'border-[var(--accent-red)]/30 bg-[var(--accent-red)]/5 text-[var(--accent-red)]',
-  success:
-    'border-[var(--accent-green)]/30 bg-[var(--accent-green)]/5 text-[var(--accent-green)]',
+  success: 'border-[var(--accent-green)]/30 bg-[var(--accent-green)]/5 text-[var(--accent-green)]',
   info: 'border-[var(--border-default)] bg-[var(--bg-elevated)] text-[var(--text-secondary)]',
 }
 

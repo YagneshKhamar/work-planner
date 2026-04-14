@@ -9,6 +9,7 @@ import DailyReport from './pages/DailyReport'
 import WeeklyReport from './pages/WeeklyReport'
 import YearlyReport from './pages/YearlyReport'
 import Analytics from './pages/Analytics'
+import Team from './pages/Team'
 
 function AppLayout({ children }: { children: React.ReactNode }): React.JSX.Element {
   return (
@@ -64,6 +65,7 @@ function AppRouter(): React.JSX.Element {
         <Route path="/report/weekly" element={<WeeklyReport />} />
         <Route path="/report/yearly" element={<YearlyReport />} />
         <Route path="/analytics" element={<Analytics />} />
+        <Route path="/team" element={<Team />} />
       </Routes>
     </AppLayout>
   )

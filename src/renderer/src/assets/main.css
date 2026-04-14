@@ -7,7 +7,11 @@ body {
   overflow: hidden;
   background: var(--bg-base);
   color: var(--text-primary);
-  font-family: 'Geist', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family:
+    'Geist',
+    -apple-system,
+    BlinkMacSystemFont,
+    sans-serif;
   -webkit-font-smoothing: antialiased;
   user-select: none;
   line-height: 1.5;

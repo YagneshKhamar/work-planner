@@ -18,12 +18,29 @@ export function registerConfigHandlers(): void {
         business_goal_count: number
         personal_goal_count: number
         family_goal_count: number
+        max_daily_tasks?: number
         ollama_model?: string
         ollama_base_url?: string
         openrouter_model?: string
       },
     ) => {
       const db = getDatabase()
+      const {
+        ai_provider,
+        api_key,
+        working_start,
+        working_end,
+        working_days,
+        break_start,
+        break_end,
+        business_goal_count,
+        personal_goal_count,
+        family_goal_count,
+        max_daily_tasks = 5,
+        ollama_model,
+        ollama_base_url,
+        openrouter_model,
+      } = data
 
       const existing = db.prepare('SELECT id FROM config WHERE id = 1').get()
 
@@ -41,6 +58,7 @@ export function registerConfigHandlers(): void {
           business_goal_count = ?,
           personal_goal_count = ?,
           family_goal_count = ?,
+          max_daily_tasks = ?,
           ollama_model = ?,
           ollama_base_url = ?,
           openrouter_model = ?,
@@ -48,19 +66,20 @@ export function registerConfigHandlers(): void {
         WHERE id = 1
       `,
         ).run(
-          data.ai_provider,
-          data.api_key,
-          data.working_start,
-          data.working_end,
-          JSON.stringify(data.working_days),
-          data.break_start,
-          data.break_end,
-          data.business_goal_count,
-          data.personal_goal_count,
-          data.family_goal_count,
-          data.ollama_model ?? 'llama3',
-          data.ollama_base_url ?? 'http://localhost:11434',
-          data.openrouter_model ?? 'mistralai/mistral-7b-instruct',
+          ai_provider,
+          api_key,
+          working_start,
+          working_end,
+          JSON.stringify(working_days),
+          break_start,
+          break_end,
+          business_goal_count,
+          personal_goal_count,
+          family_goal_count,
+          max_daily_tasks,
+          ollama_model ?? 'llama3',
+          ollama_base_url ?? 'http://localhost:11434',
+          openrouter_model ?? 'nvidia/nemotron-3-super-120b-a12b:free',
         )
       } else {
         db.prepare(
@@ -69,24 +88,25 @@ export function registerConfigHandlers(): void {
           id, ai_provider, api_key_encrypted,
           working_start, working_end, working_days,
           break_start, break_end, business_goal_count,
-          personal_goal_count, family_goal_count,
+          personal_goal_count, family_goal_count, max_daily_tasks,
           ollama_model, ollama_base_url, openrouter_model
-        ) VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
         ).run(
-          data.ai_provider,
-          data.api_key,
-          data.working_start,
-          data.working_end,
-          JSON.stringify(data.working_days),
-          data.break_start,
-          data.break_end,
-          data.business_goal_count,
-          data.personal_goal_count,
-          data.family_goal_count,
-          data.ollama_model ?? 'llama3',
-          data.ollama_base_url ?? 'http://localhost:11434',
-          data.openrouter_model ?? 'mistralai/mistral-7b-instruct',
+          ai_provider,
+          api_key,
+          working_start,
+          working_end,
+          JSON.stringify(working_days),
+          break_start,
+          break_end,
+          business_goal_count,
+          personal_goal_count,
+          family_goal_count,
+          max_daily_tasks,
+          ollama_model ?? 'llama3',
+          ollama_base_url ?? 'http://localhost:11434',
+          openrouter_model ?? 'nvidia/nemotron-3-super-120b-a12b:free',
         )
       }
 
@@ -116,9 +136,10 @@ export function registerConfigHandlers(): void {
       business_goal_count: Number(row.business_goal_count ?? 3),
       personal_goal_count: Number(row.personal_goal_count ?? 1),
       family_goal_count: Number(row.family_goal_count ?? 1),
+      max_daily_tasks: Number(row.max_daily_tasks ?? 5),
       ollama_model: String(row.ollama_model ?? 'llama3'),
       ollama_base_url: String(row.ollama_base_url ?? 'http://localhost:11434'),
-      openrouter_model: String(row.openrouter_model ?? 'mistralai/mistral-7b-instruct'),
+      openrouter_model: String(row.openrouter_model ?? 'nvidia/nemotron-3-super-120b-a12b:free'),
     }
   })
 }

@@ -28,9 +28,10 @@ export default function Setup(): React.JSX.Element {
   const [businessGoalCount, setBusinessGoalCount] = useState(3)
   const [personalGoalCount, setPersonalGoalCount] = useState(1)
   const [familyGoalCount, setFamilyGoalCount] = useState(1)
+  const [maxDailyTasks, setMaxDailyTasks] = useState(5)
   const [ollamaModel, setOllamaModel] = useState('llama3')
   const [ollamaBaseUrl, setOllamaBaseUrl] = useState('http://localhost:11434')
-  const [openrouterModel, setOpenrouterModel] = useState('mistralai/mistral-7b-instruct')
+  const [openrouterModel, setOpenrouterModel] = useState('nvidia/nemotron-3-super-120b-a12b:free')
   const { error, success } = useToast()
 
   useEffect(() => {
@@ -49,9 +50,12 @@ export default function Setup(): React.JSX.Element {
       setBusinessGoalCount(Number(config.business_goal_count ?? 3))
       setPersonalGoalCount(Number(config.personal_goal_count ?? 1))
       setFamilyGoalCount(Number(config.family_goal_count ?? 1))
+      setMaxDailyTasks(Number(config.max_daily_tasks ?? 5))
       setOllamaModel(String(config.ollama_model ?? 'llama3'))
       setOllamaBaseUrl(String(config.ollama_base_url ?? 'http://localhost:11434'))
-      setOpenrouterModel(String(config.openrouter_model ?? 'mistralai/mistral-7b-instruct'))
+      setOpenrouterModel(
+        String(config.openrouter_model ?? 'nvidia/nemotron-3-super-120b-a12b:free'),
+      )
     }
     hydrateConfig()
   }, [])
@@ -115,6 +119,7 @@ export default function Setup(): React.JSX.Element {
         business_goal_count: businessGoalCount,
         personal_goal_count: personalGoalCount,
         family_goal_count: familyGoalCount,
+        max_daily_tasks: maxDailyTasks,
         ollama_model: ollamaModel,
         ollama_base_url: ollamaBaseUrl,
         openrouter_model: openrouterModel,
@@ -129,7 +134,7 @@ export default function Setup(): React.JSX.Element {
       <div className="mx-auto bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-xl p-5 w-full max-w-5xl mb-6">
         <div className="mb-4">
           <p className="font-mono text-xs tracking-widest text-[var(--text-muted)] uppercase mb-1">
-            EXECOS
+            Execd
           </p>
           <h1 className="text-xl font-semibold text-[var(--text-primary)]">Setup</h1>
           <p className="text-sm text-[var(--text-secondary)] mt-1">
@@ -249,7 +254,7 @@ export default function Setup(): React.JSX.Element {
                     type="text"
                     value={openrouterModel}
                     onChange={(e) => setOpenrouterModel(e.target.value)}
-                    placeholder="mistralai/mistral-7b-instruct"
+                    placeholder="nvidia/nemotron-3-super-120b-a12b:free"
                     className="w-full bg-[var(--bg-base)] border border-[var(--border-default)] focus:border-[var(--border-active)] rounded px-3 py-2 text-sm text-[var(--text-primary)] outline-none"
                   />
                 </div>
@@ -372,6 +377,26 @@ export default function Setup(): React.JSX.Element {
               <p className="text-[var(--text-muted)] text-xs">
                 Minimum: 3 business, 1 personal, 1 family.
               </p>
+            </div>
+            <div className="bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-lg p-4 space-y-3">
+              <label className="block text-xs font-mono text-[var(--text-muted)] uppercase tracking-widest">
+                Daily Task Limit
+              </label>
+              <div className="flex gap-1.5 flex-wrap">
+                {[5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15].map((value) => (
+                  <button
+                    key={value}
+                    onClick={() => setMaxDailyTasks(value)}
+                    className={`font-mono text-xs px-3 py-1.5 rounded transition-colors ${
+                      maxDailyTasks === value
+                        ? 'bg-[var(--accent-blue)] text-white border border-[var(--accent-blue)]'
+                        : 'bg-transparent border border-[var(--border-default)] text-[var(--text-secondary)] hover:border-[var(--border-active)] cursor-pointer'
+                    }`}
+                  >
+                    {value}
+                  </button>
+                ))}
+              </div>
             </div>
           </section>
         </div>

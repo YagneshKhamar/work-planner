@@ -16,7 +16,7 @@ export function runInitialMigration(db: Database.Database): void {
       family_goal_count INTEGER NOT NULL DEFAULT 1,
       ollama_model TEXT NOT NULL DEFAULT 'llama3',
       ollama_base_url TEXT NOT NULL DEFAULT 'http://localhost:11434',
-      openrouter_model TEXT NOT NULL DEFAULT 'mistralai/mistral-7b-instruct',
+      openrouter_model TEXT NOT NULL DEFAULT 'nvidia/nemotron-3-super-120b-a12b:free',
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
@@ -119,7 +119,10 @@ export function runInitialMigration(db: Database.Database): void {
       // column already exists, ignore
     }
   }
-  addColumnIfMissing("ollama_model", "TEXT NOT NULL DEFAULT 'llama3'")
-  addColumnIfMissing("ollama_base_url", "TEXT NOT NULL DEFAULT 'http://localhost:11434'")
-  addColumnIfMissing("openrouter_model", "TEXT NOT NULL DEFAULT 'mistralai/mistral-7b-instruct'")
+  addColumnIfMissing('ollama_model', "TEXT NOT NULL DEFAULT 'llama3'")
+  addColumnIfMissing('ollama_base_url', "TEXT NOT NULL DEFAULT 'http://localhost:11434'")
+  addColumnIfMissing(
+    'openrouter_model',
+    "TEXT NOT NULL DEFAULT 'nvidia/nemotron-3-super-120b-a12b:free'",
+  )
 }
