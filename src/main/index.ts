@@ -15,6 +15,12 @@ let tray: Tray | null = null
 let overlayWindow: BrowserWindow | null = null
 
 function getAppIconPath(): string {
+  if (app.isPackaged) {
+    // resources/ is unpacked from asar alongside app.asar
+    const iconPath = join(process.resourcesPath, 'app.asar.unpacked', 'resources', 'icon.png')
+    if (existsSync(iconPath)) return iconPath
+    return join(process.resourcesPath, 'app.asar.unpacked', 'resources', 'logo.png')
+  }
   const logoPath = join(__dirname, '../../resources/logo.png')
   if (existsSync(logoPath)) return logoPath
   return join(__dirname, '../../resources/icon.png')
