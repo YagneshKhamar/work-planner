@@ -216,10 +216,10 @@ export default function Today(): React.JSX.Element {
       const breakEnd = config.break_end || '14:00'
       const maxDailyTasks = Number(config.max_daily_tasks ?? 5)
 
-      const [startH, startM] = workStart.split(':').map(Number)
-      const [endH, endM] = workEnd.split(':').map(Number)
-      const [bStartH, bStartM] = breakStart.split(':').map(Number)
-      const [bEndH, bEndM] = breakEnd.split(':').map(Number)
+      const [startH, startM] = String(workStart).split(':').map(Number)
+      const [endH, endM] = String(workEnd).split(':').map(Number)
+      const [bStartH, bStartM] = String(breakStart).split(':').map(Number)
+      const [bEndH, bEndM] = String(breakEnd).split(':').map(Number)
 
       const totalMinutes = endH * 60 + endM - (startH * 60 + startM)
       const breakMinutes = bEndH * 60 + bEndM - (bStartH * 60 + bStartM)
