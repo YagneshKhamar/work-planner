@@ -39,13 +39,13 @@ mac:
   entitlementsInherit: build/entitlements.mac.plist
   hardenedRuntime: true
   gatekeeperAssess: false
+  identity: ${APPLE_IDENTITY}
+  notarize: true
   extendInfo:
     - NSCameraUsageDescription: Application requests access to the device's camera.
     - NSMicrophoneUsageDescription: Application requests access to the device's microphone.
     - NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
     - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
-  notarize: true
-
   target:
     - target: dmg
       arch:
@@ -72,4 +72,3 @@ publish:
   provider: github
   owner: YagneshKhamar
   repo: execd
-  # url: https://example.com/auto-updates
