@@ -39,7 +39,6 @@ mac:
   entitlementsInherit: build/entitlements.mac.plist
   hardenedRuntime: true
   gatekeeperAssess: false
-  identity: ${APPLE_IDENTITY}
   notarize: true
   extendInfo:
     - NSCameraUsageDescription: Application requests access to the device's camera.
