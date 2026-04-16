@@ -41,6 +41,7 @@ function ensureSchemaUpdates(database: Database.Database): void {
   }
 
   addColumnIfMissing(database, 'tasks', 'notes', 'TEXT NOT NULL DEFAULT ""')
+  addColumnIfMissing(database, 'config', 'api_key_is_encrypted', 'INTEGER NOT NULL DEFAULT 0')
 
   const tableCreateStatements = [
     `CREATE TABLE IF NOT EXISTS team_members (

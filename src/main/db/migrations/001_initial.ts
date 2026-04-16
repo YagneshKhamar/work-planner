@@ -6,6 +6,7 @@ export function runInitialMigration(db: Database.Database): void {
       id INTEGER PRIMARY KEY DEFAULT 1,
       ai_provider TEXT NOT NULL DEFAULT 'openai',
       api_key_encrypted TEXT NOT NULL DEFAULT '',
+      api_key_is_encrypted INTEGER NOT NULL DEFAULT 0,
       working_start TEXT NOT NULL DEFAULT '09:00',
       working_end TEXT NOT NULL DEFAULT '18:00',
       working_days TEXT NOT NULL DEFAULT '["mon","tue","wed","thu","fri"]',
@@ -125,4 +126,5 @@ export function runInitialMigration(db: Database.Database): void {
     'openrouter_model',
     "TEXT NOT NULL DEFAULT 'nvidia/nemotron-3-super-120b-a12b:free'",
   )
+  addColumnIfMissing('api_key_is_encrypted', 'INTEGER NOT NULL DEFAULT 0')
 }

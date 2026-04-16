@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { Eye, EyeOff } from 'lucide-react'
+import { AlertTriangle, Eye, EyeOff } from 'lucide-react'
 import { useToast } from '../components/Toast'
 
 const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const
@@ -32,12 +32,14 @@ export default function Setup(): React.JSX.Element {
   const [ollamaModel, setOllamaModel] = useState('llama3')
   const [ollamaBaseUrl, setOllamaBaseUrl] = useState('http://localhost:11434')
   const [openrouterModel, setOpenrouterModel] = useState('nvidia/nemotron-3-super-120b-a12b:free')
+  const [loadedConfig, setLoadedConfig] = useState<Record<string, unknown> | null>(null)
   const { error, success } = useToast()
 
   useEffect(() => {
     async function hydrateConfig(): Promise<void> {
       const config = (await window.api.config.get()) as Record<string, unknown> | null
       if (!config) return
+      setLoadedConfig(config)
       setProvider(
         (config.ai_provider as 'openai' | 'anthropic' | 'ollama' | 'openrouter') ?? 'openai',
       )
@@ -141,6 +143,21 @@ export default function Setup(): React.JSX.Element {
             Configure your AI provider and schedule.
           </p>
         </div>
+        {loadedConfig &&
+          Number(loadedConfig.api_key_is_encrypted ?? 0) === 0 &&
+          Boolean(loadedConfig.api_key_encrypted) && (
+            <div className="bg-[var(--accent-yellow)]/5 border border-[var(--accent-yellow)]/20 rounded p-3 mb-4 flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 text-[var(--accent-yellow)] shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs text-[var(--accent-yellow)] font-medium">
+                  API key not encrypted
+                </p>
+                <p className="text-xs text-[var(--text-muted)] mt-0.5">
+                  Save your settings to encrypt your API key using OS secure storage.
+                </p>
+              </div>
+            </div>
+          )}
 
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
           <section className="bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-lg p-4 space-y-3">

@@ -1,4 +1,4 @@
-import { ipcMain } from 'electron'
+import { ipcMain, safeStorage } from 'electron'
 import { getDatabase } from '../db/database'
 import { v4 as uuidv4 } from 'uuid'
 
@@ -41,6 +41,15 @@ export function registerConfigHandlers(): void {
         ollama_base_url,
         openrouter_model,
       } = data
+      const rawKey = api_key || ''
+      let keyToStore = rawKey
+      let apiKeyIsEncrypted = 0
+
+      if (rawKey && safeStorage.isEncryptionAvailable()) {
+        const encrypted = safeStorage.encryptString(rawKey)
+        keyToStore = encrypted.toString('base64')
+        apiKeyIsEncrypted = 1
+      }
 
       const existing = db.prepare('SELECT id FROM config WHERE id = 1').get()
 
@@ -50,6 +59,7 @@ export function registerConfigHandlers(): void {
         UPDATE config SET
           ai_provider = ?,
           api_key_encrypted = ?,
+          api_key_is_encrypted = ?,
           working_start = ?,
           working_end = ?,
           working_days = ?,
@@ -67,7 +77,8 @@ export function registerConfigHandlers(): void {
       `,
         ).run(
           ai_provider,
-          api_key,
+          keyToStore,
+          apiKeyIsEncrypted,
           working_start,
           working_end,
           JSON.stringify(working_days),
@@ -86,15 +97,17 @@ export function registerConfigHandlers(): void {
           `
         INSERT INTO config (
           id, ai_provider, api_key_encrypted,
+          api_key_is_encrypted,
           working_start, working_end, working_days,
           break_start, break_end, business_goal_count,
           personal_goal_count, family_goal_count, max_daily_tasks,
           ollama_model, ollama_base_url, openrouter_model
-        ) VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
         ).run(
           ai_provider,
-          api_key,
+          keyToStore,
+          apiKeyIsEncrypted,
           working_start,
           working_end,
           JSON.stringify(working_days),
@@ -116,8 +129,23 @@ export function registerConfigHandlers(): void {
 
   ipcMain.handle('config:get', () => {
     const db = getDatabase()
-    const config = db.prepare('SELECT * FROM config WHERE id = 1').get()
+    const config = db.prepare('SELECT * FROM config WHERE id = 1').get() as
+      | Record<string, unknown>
+      | undefined
     if (!config) return null
+
+    if (
+      config.api_key_is_encrypted === 1 &&
+      config.api_key_encrypted &&
+      safeStorage.isEncryptionAvailable()
+    ) {
+      try {
+        const buffer = Buffer.from(config.api_key_encrypted as string, 'base64')
+        config.api_key_encrypted = safeStorage.decryptString(buffer)
+      } catch {
+        config.api_key_encrypted = ''
+      }
+    }
 
     const row = config as Record<string, unknown>
     let workingDays: string[] = ['mon', 'tue', 'wed', 'thu', 'fri']
