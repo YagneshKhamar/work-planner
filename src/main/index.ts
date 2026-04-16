@@ -1,5 +1,7 @@
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
 import { app, BrowserWindow, ipcMain, Menu, nativeImage, Notification, shell, Tray } from 'electron'
+import log from 'electron-log'
+import { autoUpdater } from 'electron-updater'
 import { existsSync } from 'fs'
 import { join } from 'path'
 import { closeDatabase, getDatabase } from './db/database'
@@ -149,6 +151,15 @@ function createTray(): void {
     },
     { type: 'separator' },
     {
+      label: 'Check for Updates',
+      click: () => {
+        if (app.isPackaged) {
+          autoUpdater.checkForUpdates()
+        }
+      },
+    },
+    { type: 'separator' },
+    {
       label: 'Quit',
       click: () => {
         tray?.destroy()
@@ -213,6 +224,10 @@ function fireTaskCheckNotification(): void {
 app.whenReady().then(() => {
   electronApp.setAppUserModelId('com.execd')
 
+  autoUpdater.logger = log
+  autoUpdater.autoDownload = false
+  autoUpdater.autoInstallOnAppQuit = true
+
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
   })
@@ -245,10 +260,69 @@ app.whenReady().then(() => {
     return image.toPNG().toString('base64')
   })
 
+  ipcMain.handle('updater:check', () => {
+    if (app.isPackaged) {
+      autoUpdater.checkForUpdates()
+    }
+  })
+
+  ipcMain.handle('updater:download', () => {
+    autoUpdater.downloadUpdate()
+  })
+
+  ipcMain.handle('updater:install', () => {
+    autoUpdater.quitAndInstall()
+  })
+
   mainWindow = createMainWindow()
   createTray()
 
   overlayWindow = createOverlayWindow()
+
+  autoUpdater.on('checking-for-update', () => {
+    mainWindow?.webContents.send('updater:status', {
+      status: 'checking',
+    })
+  })
+
+  autoUpdater.on('update-available', (info) => {
+    mainWindow?.webContents.send('updater:status', {
+      status: 'available',
+      version: info.version,
+    })
+  })
+
+  autoUpdater.on('update-not-available', () => {
+    mainWindow?.webContents.send('updater:status', {
+      status: 'latest',
+    })
+  })
+
+  autoUpdater.on('download-progress', (progress) => {
+    mainWindow?.webContents.send('updater:status', {
+      status: 'downloading',
+      percent: Math.round(progress.percent),
+    })
+  })
+
+  autoUpdater.on('update-downloaded', () => {
+    mainWindow?.webContents.send('updater:status', {
+      status: 'ready',
+    })
+  })
+
+  autoUpdater.on('error', (err) => {
+    mainWindow?.webContents.send('updater:status', {
+      status: 'error',
+      message: err.message,
+    })
+  })
+
+  setTimeout(() => {
+    if (app.isPackaged) {
+      autoUpdater.checkForUpdates()
+    }
+  }, 5000)
 
   setInterval(fireTaskCheckNotification, 60 * 60 * 1000)
 

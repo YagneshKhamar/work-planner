@@ -140,6 +140,18 @@ export interface IElectronAPI {
     openMain: () => Promise<void>
     hide: () => Promise<void>
   }
+  updater: {
+    check: () => Promise<void>
+    download: () => Promise<void>
+    install: () => Promise<void>
+    onStatus: (callback: (data: {
+      status: 'checking' | 'available' | 'latest' | 'downloading' | 'ready' | 'error'
+      version?: string
+      percent?: number
+      message?: string
+    }) => void) => void
+    removeStatusListener: () => void
+  }
   electronAPI: {
     captureReport: (rect?: { x: number; y: number; width: number; height: number }) => Promise<string>
   }

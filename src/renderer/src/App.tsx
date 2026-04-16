@@ -10,12 +10,14 @@ import WeeklyReport from './pages/WeeklyReport'
 import YearlyReport from './pages/YearlyReport'
 import Analytics from './pages/Analytics'
 import Team from './pages/Team'
+import UpdateNotifier from './components/UpdateNotifier'
 
 function AppLayout({ children }: { children: React.ReactNode }): React.JSX.Element {
   return (
     <div className="h-screen w-screen flex bg-[var(--bg-base)] overflow-hidden">
       <Sidebar />
       <main className="flex-1 overflow-hidden">{children}</main>
+      <UpdateNotifier />
     </div>
   )
 }

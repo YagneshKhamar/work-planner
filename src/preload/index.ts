@@ -75,6 +75,17 @@ contextBridge.exposeInMainWorld('api', {
     openMain: () => ipcRenderer.invoke('overlay:open-main'),
     hide: () => ipcRenderer.invoke('overlay:hide'),
   },
+  updater: {
+    check: () => ipcRenderer.invoke('updater:check'),
+    download: () => ipcRenderer.invoke('updater:download'),
+    install: () => ipcRenderer.invoke('updater:install'),
+    onStatus: (callback: (data: unknown) => void) => {
+      ipcRenderer.on('updater:status', (_event, data) => callback(data))
+    },
+    removeStatusListener: () => {
+      ipcRenderer.removeAllListeners('updater:status')
+    },
+  },
   electronAPI: {
     captureReport: (rect?: unknown) => ipcRenderer.invoke('capture-report', rect),
   },
