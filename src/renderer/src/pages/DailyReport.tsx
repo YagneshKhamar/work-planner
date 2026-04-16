@@ -8,6 +8,7 @@ interface Task {
   effort: 'light' | 'medium' | 'heavy'
   status: 'pending' | 'completed' | 'carried' | 'dropped' | 'missed'
   proof_value: string | null
+  notes: string
 }
 
 const EFFORT_WEIGHT: Record<string, number> = { light: 1, medium: 2, heavy: 3 }
@@ -271,6 +272,11 @@ export default function DailyReport(): React.JSX.Element {
                         {task.proof_value}
                       </p>
                     )}
+                    {task.notes && (
+                      <p className="text-[10px] text-[var(--text-muted)] font-mono mt-1 leading-relaxed whitespace-pre-wrap">
+                        {task.notes}
+                      </p>
+                    )}
                   </div>
                   <div className="shrink-0 flex flex-col items-end gap-1 mt-0.5">
                     {statusLabel(task.status)}
@@ -322,6 +328,11 @@ export default function DailyReport(): React.JSX.Element {
                     {task.proof_value && (
                       <p className="text-xs text-[var(--text-muted)] mt-0.5 truncate">
                         {task.proof_value}
+                      </p>
+                    )}
+                    {task.notes && (
+                      <p className="text-[10px] text-[var(--text-muted)] font-mono mt-1 leading-relaxed whitespace-pre-wrap">
+                        {task.notes}
                       </p>
                     )}
                   </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { ChevronDown, ExternalLink } from 'lucide-react'
+import { ChevronDown, ExternalLink, FileText } from 'lucide-react'
 
 interface Task {
   id: string
@@ -8,6 +8,7 @@ interface Task {
   status: 'pending' | 'completed' | 'carried' | 'dropped' | 'missed'
   proof_type: 'none' | 'comment' | 'link'
   carry_count: number
+  notes: string
 }
 
 function getToday(): string {
@@ -18,6 +19,9 @@ export default function Overlay(): React.JSX.Element {
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
   const [completingId, setCompletingId] = useState<string | null>(null)
+  const [expandedNote, setExpandedNote] = useState<string | null>(null)
+  const [noteInput, setNoteInput] = useState<Record<string, string>>({})
+  const [savingNote, setSavingNote] = useState<string | null>(null)
 
   useEffect(() => {
     loadTasks()
@@ -29,6 +33,11 @@ export default function Overlay(): React.JSX.Element {
     try {
       const todayTasks = (await window.api.tasks.getByDate(getToday())) as Task[]
       setTasks(todayTasks)
+      const initial: Record<string, string> = {}
+      todayTasks.forEach((t) => {
+        initial[t.id] = t.notes || ''
+      })
+      setNoteInput(initial)
     } catch (e) {
       console.error('Overlay failed to load tasks:', e)
     } finally {
@@ -116,43 +125,83 @@ export default function Overlay(): React.JSX.Element {
         ) : (
           <div className="no-drag flex-1 overflow-y-auto overlay-scroll px-3 py-2 pb-2">
             {tasks.map((task) => (
-              <div
-                key={task.id}
-                className={`flex items-start gap-3 px-2 py-2.5 rounded-lg mb-1 transition-colors ${
-                  task.status === 'completed' ? 'opacity-40' : 'hover:bg-white/[0.03]'
-                }`}
-              >
-                <button
-                  onClick={() => handleTaskClick(task)}
-                  disabled={completingId === task.id}
-                  className={`mt-0.5 w-4 h-4 rounded border shrink-0 flex items-center justify-center transition-all cursor-pointer ${
-                    task.status === 'completed'
-                      ? 'bg-[var(--accent-green)] border-[var(--accent-green)]'
-                      : 'border-white/25 hover:border-white/60 bg-transparent'
+              <div key={task.id}>
+                <div
+                  className={`flex items-start gap-3 px-2 py-2.5 rounded-lg mb-1 transition-colors ${
+                    task.status === 'completed' ? 'opacity-40' : 'hover:bg-white/[0.03]'
                   }`}
                 >
-                  {task.status === 'completed' && (
-                    <span className="text-white text-[10px] font-bold">✓</span>
-                  )}
-                  {completingId === task.id && (
-                    <span className="text-white/40 text-[10px]">...</span>
-                  )}
-                </button>
-                <p
-                  className={`text-sm flex-1 leading-snug break-words ${
-                    task.status === 'completed' ? 'text-white/30 line-through' : 'text-white/85'
-                  }`}
-                >
-                  {task.title}
-                </p>
-                <div className="flex flex-col items-end gap-1 shrink-0 mt-0.5">
-                  <span className="font-mono text-[10px] text-white/25">
-                    {task.effort === 'light' ? 'L' : task.effort === 'medium' ? 'M' : 'H'}
-                  </span>
-                  {task.proof_type !== 'none' && task.status !== 'completed' && (
-                    <span className="font-mono text-[9px] text-white/20">↗</span>
-                  )}
+                  <button
+                    onClick={() => handleTaskClick(task)}
+                    disabled={completingId === task.id}
+                    className={`mt-0.5 w-4 h-4 rounded border shrink-0 flex items-center justify-center transition-all cursor-pointer ${
+                      task.status === 'completed'
+                        ? 'bg-[var(--accent-green)] border-[var(--accent-green)]'
+                        : 'border-white/25 hover:border-white/60 bg-transparent'
+                    }`}
+                  >
+                    {task.status === 'completed' && (
+                      <span className="text-white text-[10px] font-bold">✓</span>
+                    )}
+                    {completingId === task.id && (
+                      <span className="text-white/40 text-[10px]">...</span>
+                    )}
+                  </button>
+                  <p
+                    className={`text-sm flex-1 leading-snug break-words ${
+                      task.status === 'completed' ? 'text-white/30 line-through' : 'text-white/85'
+                    }`}
+                  >
+                    {task.title}
+                  </p>
+                  <div className="flex items-start gap-1 shrink-0 mt-0.5">
+                    <div className="flex flex-col items-end gap-1">
+                      <span className="font-mono text-[10px] text-white/25">
+                        {task.effort === 'light' ? 'L' : task.effort === 'medium' ? 'M' : 'H'}
+                      </span>
+                      {task.proof_type !== 'none' && task.status !== 'completed' && (
+                        <span className="font-mono text-[9px] text-white/20">↗</span>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => {
+                        setExpandedNote(expandedNote === task.id ? null : task.id)
+                      }}
+                      className={`no-drag shrink-0 cursor-pointer transition-colors ${
+                        task.notes
+                          ? 'text-[var(--accent-blue)]/60'
+                          : 'text-white/10 hover:text-white/30'
+                      }`}
+                    >
+                      <FileText className="w-3 h-3" />
+                    </button>
+                  </div>
                 </div>
+                {expandedNote === task.id && (
+                  <div className="no-drag px-1 pb-2">
+                    <textarea
+                      value={noteInput[task.id] || ''}
+                      onChange={(e) =>
+                        setNoteInput((prev) => ({ ...prev, [task.id]: e.target.value }))
+                      }
+                      placeholder="Notes..."
+                      rows={2}
+                      className="w-full bg-white/5 border border-white/10 rounded px-2 py-1.5 text-[10px] text-white/70 placeholder-white/20 outline-none resize-none font-mono"
+                    />
+                    <button
+                      onClick={async () => {
+                        setSavingNote(task.id)
+                        await window.api.tasks.updateNotes(task.id, noteInput[task.id] || '')
+                        await loadTasks()
+                        setSavingNote(null)
+                      }}
+                      disabled={savingNote === task.id}
+                      className="no-drag mt-1 text-[10px] bg-[var(--accent-blue)]/80 hover:bg-[var(--accent-blue)] disabled:opacity-40 text-white px-2 py-0.5 rounded cursor-pointer transition-colors"
+                    >
+                      {savingNote === task.id ? '...' : 'Save'}
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
           </div>

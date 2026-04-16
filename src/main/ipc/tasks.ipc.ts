@@ -137,6 +137,12 @@ export function registerTasksHandlers(): void {
     return { success: true }
   })
 
+  ipcMain.handle('tasks:update-notes', (_event, taskId: string, notes: string) => {
+    const db = getDatabase()
+    db.prepare('UPDATE tasks SET notes = ? WHERE id = ?').run(notes, taskId)
+    return { success: true }
+  })
+
   ipcMain.handle('tasks:get-missed', (_event, date: string) => {
     const db = getDatabase()
     return db
@@ -196,8 +202,8 @@ export function registerTasksHandlers(): void {
     INSERT INTO tasks (
       id, subgoal_id, title, effort, proof_type,
       scheduled_date, scheduled_time_slot, status,
-      proof_value, carried_over_from, carry_count
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', null, ?, ?)
+      proof_value, carried_over_from, carry_count, notes
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', null, ?, ?, ?)
   `,
     ).run(
       newId,
@@ -209,6 +215,7 @@ export function registerTasksHandlers(): void {
       original.scheduled_time_slot,
       taskId,
       newCarryCount,
+      original.notes,
     )
 
     db.prepare(

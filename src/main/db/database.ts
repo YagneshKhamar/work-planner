@@ -5,6 +5,22 @@ import { runInitialMigration } from './migrations/001_initial'
 
 let db: Database.Database | null = null
 
+function addColumnIfMissing(
+  database: Database.Database,
+  table: string,
+  column: string,
+  definition: string,
+): void {
+  try {
+    database.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`)
+  } catch (error) {
+    const message = error instanceof Error ? error.message.toLowerCase() : ''
+    if (!message.includes('duplicate column name')) {
+      throw error
+    }
+  }
+}
+
 function ensureSchemaUpdates(database: Database.Database): void {
   const configAlterStatements = [
     `ALTER TABLE config ADD COLUMN business_goal_count INTEGER NOT NULL DEFAULT 3`,
@@ -23,6 +39,8 @@ function ensureSchemaUpdates(database: Database.Database): void {
       }
     }
   }
+
+  addColumnIfMissing(database, 'tasks', 'notes', 'TEXT NOT NULL DEFAULT ""')
 
   const tableCreateStatements = [
     `CREATE TABLE IF NOT EXISTS team_members (

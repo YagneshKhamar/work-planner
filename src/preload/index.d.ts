@@ -46,6 +46,7 @@ export interface IElectronAPI {
     lockDayPlan: (date: string) => Promise<{ success: boolean }>
     completeTask: (id: string, proof: string | null) => Promise<{ success: boolean }>
     uncompleteTask: (id: string) => Promise<{ success: boolean }>
+    updateNotes: (id: string, notes: string) => Promise<{ success: boolean }>
     getMissed: (date: string) => Promise<unknown[]>
     markMissed: (date: string) => Promise<{ success: boolean }>
     carryOver: (taskId: string, toDate: string) => Promise<{ success: boolean; newTaskId?: string }>

@@ -419,29 +419,34 @@ export default function Goals(): React.JSX.Element {
           </div>
 
           <div className="space-y-3">
-            {savedGoals.map((goal) => {
+            {savedGoals.map((goal, goalIndex) => {
               const subgoals = subgoalMap[goal.id] ?? []
               return (
                 <div
                   key={goal.id}
                   className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded overflow-hidden"
                 >
-                  <div className="px-5 py-4 flex items-center justify-between">
-                    <div className="flex items-center min-w-0">
+                  <div className="flex flex-col gap-2 px-5 py-4">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-[10px] text-[var(--text-muted)]">
+                        {String(goalIndex + 1).padStart(2, '0')}
+                      </span>
                       <span className={TYPE_BADGE[goal.type]}>{goal.type}</span>
-                      <p className="text-sm font-medium text-[var(--text-primary)] ml-3 flex-1 truncate">
+                    </div>
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="text-sm font-medium text-[var(--text-primary)] flex-1 min-w-0 leading-snug break-words">
                         {goal.title}
                       </p>
+                      <span
+                        className={`shrink-0 mt-0.5 font-mono text-[10px] px-2 py-0.5 rounded border ${
+                          goal.ai_validated === 1
+                            ? 'bg-[var(--accent-green)]/10 text-[var(--accent-green)] border-[var(--accent-green)]/20'
+                            : 'bg-[var(--text-muted)]/10 text-[var(--text-muted)] border-[var(--text-muted)]/20'
+                        }`}
+                      >
+                        {goal.ai_validated === 1 ? 'validated' : 'unvalidated'}
+                      </span>
                     </div>
-                    <span
-                      className={`font-mono text-[10px] px-2 py-0.5 rounded border ${
-                        goal.ai_validated === 1
-                          ? 'bg-[var(--accent-green)]/10 text-[var(--accent-green)] border-[var(--accent-green)]/20'
-                          : 'bg-[var(--text-muted)]/10 text-[var(--text-muted)] border-[var(--text-muted)]/20'
-                      }`}
-                    >
-                      {goal.ai_validated === 1 ? 'validated' : 'unvalidated'}
-                    </span>
                   </div>
 
                   <div className="px-5 pb-4 border-t border-[var(--border-subtle)] pt-3 space-y-2">

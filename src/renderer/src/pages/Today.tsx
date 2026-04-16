@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { CheckCircle, Users } from 'lucide-react'
+import { CheckCircle, FileText, Users } from 'lucide-react'
 import { useToast } from '../components/Toast'
 
 interface Task {
@@ -13,6 +13,7 @@ interface Task {
   subgoal_id: string
   scheduled_time_slot: 'morning' | 'afternoon' | 'anytime'
   carry_count: number
+  notes: string
 }
 
 interface DayPlan {
@@ -68,6 +69,9 @@ export default function Today(): React.JSX.Element {
   const [completingId, setCompletingId] = useState<string | null>(null)
   const [proofInput, setProofInput] = useState<Record<string, string>>({})
   const [showProof, setShowProof] = useState<Record<string, boolean>>({})
+  const [showNotes, setShowNotes] = useState<Record<string, boolean>>({})
+  const [notesInput, setNotesInput] = useState<Record<string, string>>({})
+  const [savingNotes, setSavingNotes] = useState<string | null>(null)
   const [missedFromYesterday, setMissedFromYesterday] = useState<Task[]>([])
   const [showCarryOver, setShowCarryOver] = useState(false)
   const [carryOverProcessing, setCarryOverProcessing] = useState(false)
@@ -150,6 +154,11 @@ export default function Today(): React.JSX.Element {
       const todayTasks = (await window.api.tasks.getByDate(getToday())) as Task[]
       setDayPlan(plan)
       setTasks(todayTasks)
+      const initialNotes: Record<string, string> = {}
+      todayTasks.forEach((t) => {
+        initialNotes[t.id] = t.notes || ''
+      })
+      setNotesInput(initialNotes)
     } catch (e) {
       console.error('Failed to load today data:', e)
     } finally {
@@ -713,6 +722,55 @@ export default function Today(): React.JSX.Element {
                         </span>
                       )}
                     </div>
+
+                    <button
+                      onClick={() =>
+                        setShowNotes((prev) => ({
+                          ...prev,
+                          [task.id]: !prev[task.id],
+                        }))
+                      }
+                      className={`flex items-center gap-1 text-[10px] font-mono cursor-pointer transition-colors mt-1.5 ${
+                        task.notes
+                          ? 'text-[var(--accent-blue)]'
+                          : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
+                      }`}
+                    >
+                      <FileText className="w-3 h-3" />
+                      {task.notes ? 'notes' : 'add note'}
+                    </button>
+
+                    {showNotes[task.id] && (
+                      <div className="mt-2">
+                        <textarea
+                          value={notesInput[task.id] || ''}
+                          onChange={(e) =>
+                            setNotesInput((prev) => ({ ...prev, [task.id]: e.target.value }))
+                          }
+                          placeholder="Add notes, links, context..."
+                          rows={3}
+                          className="w-full bg-[var(--bg-base)] border border-[var(--border-default)] focus:border-[var(--border-active)] rounded px-3 py-2 text-xs text-[var(--text-primary)] placeholder-[var(--text-muted)] outline-none resize-none transition-colors font-mono"
+                        />
+                        <button
+                          onClick={async () => {
+                            setSavingNotes(task.id)
+                            await window.api.tasks.updateNotes(task.id, notesInput[task.id] || '')
+                            await loadTodayData()
+                            setSavingNotes(null)
+                          }}
+                          disabled={savingNotes === task.id}
+                          className="mt-1.5 text-xs bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-dim)] disabled:opacity-40 text-white px-3 py-1 rounded cursor-pointer transition-colors"
+                        >
+                          {savingNotes === task.id ? 'Saving...' : 'Save'}
+                        </button>
+                      </div>
+                    )}
+
+                    {task.notes && !showNotes[task.id] && (
+                      <p className="text-[10px] text-[var(--text-muted)] font-mono mt-1 truncate max-w-xs">
+                        {task.notes}
+                      </p>
+                    )}
 
                     {isLocked && task.status === 'pending' && task.proof_type !== 'none' && (
                       <p className="text-xs text-[var(--text-muted)] mt-1">

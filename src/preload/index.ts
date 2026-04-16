@@ -39,6 +39,8 @@ contextBridge.exposeInMainWorld('api', {
     completeTask: (id: string, proof: string | null) =>
       ipcRenderer.invoke('tasks:complete', id, proof),
     uncompleteTask: (id: string) => ipcRenderer.invoke('tasks:uncomplete', id),
+    updateNotes: (id: string, notes: string) =>
+      ipcRenderer.invoke('tasks:update-notes', id, notes),
     getMissed: (date: string) => ipcRenderer.invoke('tasks:get-missed', date),
     markMissed: (date: string) => ipcRenderer.invoke('tasks:mark-missed', date),
     carryOver: (taskId: string, toDate: string) =>
