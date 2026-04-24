@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Download } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell } from 'recharts'
+import { useTranslation } from 'react-i18next'
 import { useToast } from '../components/Toast'
 
 type RangeType = '1W' | '1M' | '1Y' | 'custom'
@@ -83,6 +84,7 @@ function triggerCsvDownload(csv: string, filename: string): void {
 }
 
 export default function Reports(): React.JSX.Element {
+  const { t } = useTranslation()
   const [range, setRange] = useState<RangeType>('1W')
   const [customFrom, setCustomFrom] = useState('')
   const [customTo, setCustomTo] = useState('')
@@ -156,7 +158,7 @@ export default function Reports(): React.JSX.Element {
         }
       } catch {
         if (!cancelled) {
-          error('Failed to load reports.')
+          error(t('toast.loadReportsFailed'))
           setData(null)
         }
       } finally {
@@ -174,12 +176,12 @@ export default function Reports(): React.JSX.Element {
 
   const rangeSubtitle =
     range === '1W'
-      ? 'Last 7 days'
+      ? t('reports.lastWeek')
       : range === '1M'
-        ? 'Last 30 days'
+        ? t('reports.lastMonth')
         : range === '1Y'
-          ? 'This year'
-          : 'Custom range'
+          ? t('reports.thisYear')
+          : t('reports.customRange')
 
   const allDays = useMemo(() => {
     if (!data) return [] as DayStat[]
@@ -235,13 +237,13 @@ export default function Reports(): React.JSX.Element {
     try {
       const result = await window.api.reports.exportTasksCsv({})
       if (!result.success) {
-        error('Failed to export tasks CSV.')
+        error(t('toast.exportTasksFailed'))
         return
       }
       triggerCsvDownload(result.csv, result.filename)
-      success('Tasks CSV exported.')
+      success(t('toast.exportTasksSuccess'))
     } catch {
-      error('Failed to export tasks CSV.')
+      error(t('toast.exportTasksFailed'))
     }
   }
 
@@ -249,20 +251,20 @@ export default function Reports(): React.JSX.Element {
     try {
       const result = await window.api.reports.exportSummaryCsv({})
       if (!result.success) {
-        error('Failed to export summary CSV.')
+        error(t('toast.exportSummaryFailed'))
         return
       }
       triggerCsvDownload(result.csv, result.filename)
-      success('Summary CSV exported.')
+      success(t('toast.exportSummarySuccess'))
     } catch {
-      error('Failed to export summary CSV.')
+      error(t('toast.exportSummaryFailed'))
     }
   }
 
   if (loading) {
     return (
       <div className="h-full w-full overflow-y-auto bg-[var(--bg-base)] flex items-center justify-center">
-        <p className="text-[var(--text-muted)] text-sm font-mono">loading...</p>
+        <p className="text-[var(--text-muted)] text-sm font-mono">{t('common.loading')}</p>
       </div>
     )
   }
@@ -271,7 +273,7 @@ export default function Reports(): React.JSX.Element {
     <div className="h-full w-full overflow-y-auto bg-[var(--bg-base)]">
       <div className="max-w-4xl mx-auto px-8 py-8">
         <div className="mb-6">
-          <h1 className="text-xl font-semibold text-[var(--text-primary)]">Reports</h1>
+          <h1 className="text-xl font-semibold text-[var(--text-primary)]">{t('reports.title')}</h1>
           <p className="text-sm text-[var(--text-muted)] mt-1">{rangeSubtitle}</p>
         </div>
 
@@ -284,7 +286,7 @@ export default function Reports(): React.JSX.Element {
                 ['1Y', '1 Year'],
                 ['custom', 'Custom'],
               ] as const
-            ).map(([value, label]) => (
+            ).map(([value]) => (
               <button
                 key={value}
                 onClick={() => setRange(value)}
@@ -294,7 +296,13 @@ export default function Reports(): React.JSX.Element {
                     : 'bg-[var(--bg-elevated)] border border-[var(--border-default)] text-[var(--text-secondary)] hover:border-[var(--border-active)]'
                 }`}
               >
-                {label}
+                {value === '1W'
+                  ? t('reports.lastWeek')
+                  : value === '1M'
+                    ? t('reports.lastMonth')
+                    : value === '1Y'
+                      ? t('reports.thisYear')
+                      : t('reports.customRange')}
               </button>
             ))}
           </div>
@@ -302,7 +310,7 @@ export default function Reports(): React.JSX.Element {
           {range === 'custom' && (
             <div className="mt-3 flex items-end gap-3 flex-wrap">
               <div>
-                <p className="text-xs text-[var(--text-muted)] mb-1">From</p>
+                <p className="text-xs text-[var(--text-muted)] mb-1">{t('reports.from')}</p>
                 <input
                   type="date"
                   value={customFrom}
@@ -311,7 +319,7 @@ export default function Reports(): React.JSX.Element {
                 />
               </div>
               <div>
-                <p className="text-xs text-[var(--text-muted)] mb-1">To</p>
+                <p className="text-xs text-[var(--text-muted)] mb-1">{t('reports.to')}</p>
                 <input
                   type="date"
                   value={customTo}
@@ -332,7 +340,7 @@ export default function Reports(): React.JSX.Element {
               {avgScore}%
             </p>
             <p className="text-xs text-[var(--text-muted)] uppercase tracking-wider mt-1">
-              avg score
+              {t('reports.avgScore')}
             </p>
           </div>
           <div className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded p-4">
@@ -340,7 +348,7 @@ export default function Reports(): React.JSX.Element {
               {daysLogged}
             </p>
             <p className="text-xs text-[var(--text-muted)] uppercase tracking-wider mt-1">
-              days logged
+              {t('reports.daysLogged')}
             </p>
           </div>
           <div className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded p-4">
@@ -348,19 +356,21 @@ export default function Reports(): React.JSX.Element {
               {completed}
             </p>
             <p className="text-xs text-[var(--text-muted)] uppercase tracking-wider mt-1">
-              completed
+              {t('reports.completed')}
             </p>
           </div>
           <div className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded p-4">
             <p className="font-mono text-3xl font-semibold text-[var(--accent-red)]">{missed}</p>
-            <p className="text-xs text-[var(--text-muted)] uppercase tracking-wider mt-1">missed</p>
+            <p className="text-xs text-[var(--text-muted)] uppercase tracking-wider mt-1">
+              {t('reports.missed')}
+            </p>
           </div>
         </div>
 
         {!data || allDays.length === 0 ? (
           <div className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-xl p-8 text-center mb-6">
             <p className="text-[var(--text-muted)] text-sm">
-              No data yet. Complete your first day to see reports.
+              {t('reports.noData')}
             </p>
           </div>
         ) : (
@@ -478,7 +488,7 @@ export default function Reports(): React.JSX.Element {
             {recurringSkips.length > 0 && (
               <div className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded p-5 mb-6">
                 <h2 className="font-mono text-xs text-[var(--text-muted)] uppercase tracking-widest mb-3">
-                  RECURRING SKIPS
+                  {t('reports.recurringSkips')}
                 </h2>
                 <div className="space-y-2">
                   {recurringSkips.map((pattern) => (
@@ -499,7 +509,7 @@ export default function Reports(): React.JSX.Element {
 
         <div className="pt-2">
           <h2 className="font-mono text-xs text-[var(--text-muted)] uppercase tracking-widest mb-3">
-            EXPORT
+            {t('reports.export')}
           </h2>
           <div className="flex items-center gap-3 flex-wrap">
             <button
@@ -507,14 +517,14 @@ export default function Reports(): React.JSX.Element {
               className="bg-transparent border border-[var(--border-default)] text-[var(--text-secondary)] hover:border-[var(--border-active)] hover:text-[var(--text-primary)] text-xs px-4 py-2 rounded flex items-center gap-2 cursor-pointer transition-colors"
             >
               <Download className="w-3.5 h-3.5" />
-              Download Task History CSV
+              {t('reports.downloadTaskHistory')}
             </button>
             <button
               onClick={handleExportSummaryCsv}
               className="bg-transparent border border-[var(--border-default)] text-[var(--text-secondary)] hover:border-[var(--border-active)] hover:text-[var(--text-primary)] text-xs px-4 py-2 rounded flex items-center gap-2 cursor-pointer transition-colors"
             >
               <Download className="w-3.5 h-3.5" />
-              Download Daily Summary CSV
+              {t('reports.downloadSummary')}
             </button>
           </div>
         </div>

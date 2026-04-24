@@ -1,4 +1,5 @@
 import { NavLink } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import {
   LayoutDashboard,
   Target,
@@ -11,18 +12,19 @@ import {
   Users,
 } from 'lucide-react'
 
-const NAV_ITEMS = [
-  { icon: LayoutDashboard, label: 'Dashboard', to: '/today' },
-  { icon: Target, label: 'Goals', to: '/goals' },
-  { icon: Briefcase, label: 'Business', to: '/business' },
-  { icon: FileText, label: 'Daily Report', to: '/report/daily' },
-  { icon: BarChart2, label: 'Reports', to: '/reports' },
-  { icon: History, label: 'History', to: '/history' },
-  { icon: LineChartIcon, label: 'Analytics', to: '/analytics' },
-  { icon: Users, label: 'Team', to: '/team' },
-]
-
 export default function Sidebar(): React.JSX.Element {
+  const { t } = useTranslation()
+  const NAV_ITEMS = [
+    { icon: LayoutDashboard, label: t('nav.dashboard'), to: '/today' },
+    { icon: Target, label: t('nav.goals'), to: '/goals' },
+    { icon: Briefcase, label: t('nav.business'), to: '/business' },
+    { icon: FileText, label: t('nav.dailyReport'), to: '/report/daily' },
+    { icon: BarChart2, label: t('nav.reports'), to: '/reports' },
+    { icon: History, label: t('nav.history'), to: '/history' },
+    { icon: LineChartIcon, label: t('nav.analytics'), to: '/analytics' },
+    { icon: Users, label: t('nav.team'), to: '/team' },
+  ]
+
   return (
     <aside
       style={{ width: 200, minWidth: 200 }}
@@ -65,7 +67,7 @@ export default function Sidebar(): React.JSX.Element {
           }
         >
           <Settings className="w-4 h-4 shrink-0" />
-          <span>Settings</span>
+          <span>{t('nav.settings')}</span>
         </NavLink>
       </div>
     </aside>

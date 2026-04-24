@@ -1,44 +1,8 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useToast } from '../components/Toast'
-
-const ACTIVITIES = [
-  { id: 'customer_visits', label: 'Customer Visits' },
-  { id: 'phone_followups', label: 'Phone Follow-ups' },
-  { id: 'whatsapp', label: 'WhatsApp Messages' },
-  { id: 'new_party_visits', label: 'New Party Visits' },
-  { id: 'collection_calls', label: 'Collection Calls' },
-  { id: 'exhibitions', label: 'Exhibitions' },
-]
-
-const BUSINESS_TYPES = [
-  { value: 'textile', label: 'Textile' },
-  { value: 'manufacturing', label: 'Manufacturing' },
-  { value: 'trading', label: 'Trading' },
-  { value: 'retail', label: 'Retail' },
-  { value: 'services', label: 'Services' },
-  { value: 'other', label: 'Other' },
-]
-
-const LANGUAGES = [
-  { value: 'en', label: 'English' },
-  { value: 'hi', label: 'हिंदी' },
-  { value: 'gu', label: 'ગુજરાતી' },
-]
-const MONTH_NAMES = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-]
+import i18n from '../i18n/index'
 
 type BusinessProps = {
   isSetup?: boolean
@@ -46,7 +10,47 @@ type BusinessProps = {
 
 export default function Business({ isSetup = false }: BusinessProps): React.JSX.Element {
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const { error, success } = useToast()
+  function getMonthName(monthIndex: number, short = false): string {
+    const keys = [
+      'jan',
+      'feb',
+      'mar',
+      'apr',
+      'may',
+      'jun',
+      'jul',
+      'aug',
+      'sep',
+      'oct',
+      'nov',
+      'dec',
+    ]
+    const key = short ? `${keys[monthIndex]}Short` : keys[monthIndex]
+    return t(`months.${key}`)
+  }
+  const ACTIVITIES = [
+    { id: 'customer_visits', label: t('business.activities.customer_visits') },
+    { id: 'phone_followups', label: t('business.activities.phone_followups') },
+    { id: 'whatsapp', label: t('business.activities.whatsapp') },
+    { id: 'new_party_visits', label: t('business.activities.new_party_visits') },
+    { id: 'collection_calls', label: t('business.activities.collection_calls') },
+    { id: 'exhibitions', label: t('business.activities.exhibitions') },
+  ]
+  const BUSINESS_TYPES = [
+    { value: 'textile', label: t('business.types.textile') },
+    { value: 'manufacturing', label: t('business.types.manufacturing') },
+    { value: 'trading', label: t('business.types.trading') },
+    { value: 'retail', label: t('business.types.retail') },
+    { value: 'services', label: t('business.types.services') },
+    { value: 'other', label: t('business.types.other') },
+  ]
+  const LANGUAGES = [
+    { value: 'en', label: t('business.languages.en') },
+    { value: 'gu', label: t('business.languages.gu') },
+    { value: 'hi', label: t('business.languages.hi') },
+  ]
 
   const [businessName, setBusinessName] = useState('')
   const [businessType, setBusinessType] = useState('')
@@ -114,7 +118,7 @@ export default function Business({ isSetup = false }: BusinessProps): React.JSX.
           setTargetsGenerated(true)
         }
       } catch {
-        error('Failed to load business profile.')
+        error(t('toast.businessFailed'))
       } finally {
         setLoaded(true)
       }
@@ -131,7 +135,7 @@ export default function Business({ isSetup = false }: BusinessProps): React.JSX.
 
   async function generateTargets(): Promise<void> {
     if (!monthlySalesTarget) {
-      error('Yearly sales target is required.')
+      error(t('toast.targetsSalesRequired'))
       return
     }
 
@@ -157,7 +161,7 @@ export default function Business({ isSetup = false }: BusinessProps): React.JSX.
       setMonthlyTargets(parsedTargets)
       setTargetsGenerated(true)
     } catch {
-      error('Failed to generate monthly targets.')
+      error(t('toast.generateTargetsFailed'))
     } finally {
       setGeneratingTargets(false)
     }
@@ -167,9 +171,9 @@ export default function Business({ isSetup = false }: BusinessProps): React.JSX.
     setSavingTargets(true)
     try {
       await window.api.sales.saveMonthlyTargets(monthlyTargets)
-      success('Monthly targets saved.')
+      success(t('toast.targetsSaved'))
     } catch {
-      error('Failed to save monthly targets.')
+      error(t('toast.generateTargetsFailed'))
     } finally {
       setSavingTargets(false)
     }
@@ -178,7 +182,7 @@ export default function Business({ isSetup = false }: BusinessProps): React.JSX.
   async function handleSave(): Promise<void> {
     const trimmedName = businessName.trim()
     if (!trimmedName) {
-      error('Business name is required.')
+      error(t('business.businessName') + ' ' + t('common.noData'))
       return
     }
 
@@ -199,13 +203,17 @@ export default function Business({ isSetup = false }: BusinessProps): React.JSX.
         language,
       })
 
+      if (language !== i18n.language) {
+        await i18n.changeLanguage(language)
+      }
+
       if (isSetup) {
         navigate('/today')
       } else {
-        success('Business profile saved.')
+        success(t('toast.businessSaved'))
       }
     } catch {
-      error('Failed to save business profile.')
+      error(t('toast.businessFailed'))
     } finally {
       setSaving(false)
     }
@@ -233,20 +241,24 @@ export default function Business({ isSetup = false }: BusinessProps): React.JSX.
   const formContent = (
     <div className={isSetup ? 'space-y-4' : 'grid grid-cols-1 md:grid-cols-2 gap-4'}>
       <section className={cardClass}>
-        <label className={sectionLabelClass}>Business</label>
+        <label className={sectionLabelClass}>{t('business.businessSection')}</label>
         <div className="space-y-3">
           <div>
-            <p className="text-xs text-[var(--text-secondary)] mb-1">Business Name</p>
+            <p className="text-xs text-[var(--text-secondary)] mb-1">
+              {t('business.businessName')}
+            </p>
             <input
               type="text"
               value={businessName}
               onChange={(e) => setBusinessName(e.target.value)}
-              placeholder="e.g. Mehta Textiles"
+              placeholder={t('business.businessNamePlaceholder')}
               className={inputClass}
             />
           </div>
           <div>
-            <p className="text-xs text-[var(--text-secondary)] mb-1">Business Type</p>
+            <p className="text-xs text-[var(--text-secondary)] mb-1">
+              {t('business.businessType')}
+            </p>
             <select
               value={businessType}
               onChange={(e) => setBusinessType(e.target.value)}
@@ -264,7 +276,7 @@ export default function Business({ isSetup = false }: BusinessProps): React.JSX.
                 type="text"
                 value={otherBusinessType}
                 onChange={(e) => setOtherBusinessType(e.target.value)}
-                placeholder="Describe your business type..."
+                placeholder={t('business.otherPlaceholder')}
                 className="mt-2 w-full bg-[var(--bg-base)] border border-[var(--border-default)] focus:border-[var(--border-active)] rounded px-3 py-2 text-sm text-[var(--text-primary)] placeholder-[var(--text-muted)] outline-none"
               />
             )}
@@ -273,9 +285,9 @@ export default function Business({ isSetup = false }: BusinessProps): React.JSX.
       </section>
 
       <section className={cardClass}>
-        <label className={sectionLabelClass}>Preferences</label>
+        <label className={sectionLabelClass}>{t('business.preferencesSection')}</label>
         <div>
-          <p className="text-xs text-[var(--text-secondary)] mb-1">App Language</p>
+          <p className="text-xs text-[var(--text-secondary)] mb-1">{t('business.appLanguage')}</p>
           <select
             value={language}
             onChange={(e) => setLanguage(e.target.value)}
@@ -291,10 +303,12 @@ export default function Business({ isSetup = false }: BusinessProps): React.JSX.
       </section>
 
       <section className={`${cardClass} ${isSetup ? '' : 'md:col-span-2'}`}>
-        <label className={sectionLabelClass}>Operations</label>
+        <label className={sectionLabelClass}>{t('business.operationsSection')}</label>
         <div className="space-y-3">
           <div>
-            <p className="text-xs text-[var(--text-secondary)] mb-2">Primary Activities</p>
+            <p className="text-xs text-[var(--text-secondary)] mb-2">
+              {t('business.primaryActivities')}
+            </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {ACTIVITIES.map((activity) => (
                 <label
@@ -313,14 +327,14 @@ export default function Business({ isSetup = false }: BusinessProps): React.JSX.
             </div>
           </div>
           <div>
-            <p className="text-xs text-[var(--text-secondary)] mb-1">Team Size</p>
+            <p className="text-xs text-[var(--text-secondary)] mb-1">{t('business.teamSize')}</p>
             <input
               type="number"
               min={1}
               max={500}
               value={teamSize}
               onChange={(e) => setTeamSize(e.target.value)}
-              placeholder="Including yourself"
+              placeholder={t('business.teamSizePlaceholder')}
               className={inputClass}
             />
           </div>
@@ -328,12 +342,12 @@ export default function Business({ isSetup = false }: BusinessProps): React.JSX.
       </section>
 
       <section className={`${cardClass} ${isSetup ? '' : 'md:col-span-2'}`}>
-        <label className={sectionLabelClass}>Targets</label>
+        <label className={sectionLabelClass}>{t('business.targetsSection')}</label>
         <div className="space-y-3">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <p className="text-xs text-[var(--text-secondary)] mb-1">
-                Yearly Sales Target (optional)
+                {t('business.yearlySalesTarget')}
               </p>
               <div className="flex items-center gap-2">
                 <span className="text-sm text-[var(--text-muted)] font-mono">₹</span>
@@ -348,7 +362,7 @@ export default function Business({ isSetup = false }: BusinessProps): React.JSX.
             </div>
             <div>
               <p className="text-xs text-[var(--text-secondary)] mb-1">
-                Yearly Collection Target (optional)
+                {t('business.yearlyCollectionTarget')}
               </p>
               <div className="flex items-center gap-2">
                 <span className="text-sm text-[var(--text-muted)] font-mono">₹</span>
@@ -369,7 +383,7 @@ export default function Business({ isSetup = false }: BusinessProps): React.JSX.
               disabled={generatingTargets}
               className="w-full bg-transparent border border-[var(--border-default)] text-[var(--text-secondary)] hover:border-[var(--border-active)] hover:text-[var(--text-primary)] text-sm py-2.5 px-4 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              {generatingTargets ? 'Generating...' : 'Generate Monthly Plan with AI'}
+              {generatingTargets ? t('business.generating') : t('business.generateMonthlyPlan')}
             </button>
           )}
 
@@ -377,17 +391,17 @@ export default function Business({ isSetup = false }: BusinessProps): React.JSX.
             <div className="mt-2 border border-[var(--border-subtle)] rounded-lg px-3 py-2">
               <div className="flex items-center justify-between pb-2 border-b border-[var(--border-subtle)]">
                 <p className="font-mono text-xs text-[var(--text-muted)] uppercase tracking-widest">
-                  Monthly Breakdown
+                  {t('business.monthlyBreakdown')}
                 </p>
                 <p className={`text-sm font-mono ${totalColorClass}`}>
-                  Total: ₹{monthlySalesTotal}
+                  {t('business.total')}: ₹{monthlySalesTotal}
                 </p>
               </div>
 
               <div>
                 {monthlyTargets.map((item, index) => {
                   const monthPart = Number(item.year_month.split('-')[1] ?? 1)
-                  const monthLabel = MONTH_NAMES[Math.max(0, Math.min(11, monthPart - 1))]
+                  const monthLabel = getMonthName(Math.max(0, Math.min(11, monthPart - 1)), true)
                   return (
                     <div
                       key={item.year_month}
@@ -438,7 +452,7 @@ export default function Business({ isSetup = false }: BusinessProps): React.JSX.
                 disabled={savingTargets}
                 className="w-full mt-3 bg-[var(--accent-blue)] text-white font-medium py-2.5 px-6 rounded text-sm cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                {savingTargets ? 'Saving...' : 'Save Monthly Targets'}
+                {savingTargets ? t('business.savingTargets') : t('business.saveTargets')}
               </button>
             </div>
           )}
@@ -453,9 +467,11 @@ export default function Business({ isSetup = false }: BusinessProps): React.JSX.
         <div className="min-h-full flex items-start justify-center py-8 px-4">
           <div className="w-full max-w-2xl bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-xl p-8">
             <div className="mb-6">
-              <h1 className="text-xl font-semibold text-[var(--text-primary)]">Business Profile</h1>
+              <h1 className="text-xl font-semibold text-[var(--text-primary)]">
+                {t('business.title')}
+              </h1>
               <p className="text-sm text-[var(--text-secondary)] mt-1">
-                Tell us about your business
+                {t('business.setupSubtitle')}
               </p>
             </div>
 
@@ -472,7 +488,7 @@ export default function Business({ isSetup = false }: BusinessProps): React.JSX.
                     disabled={saving}
                     className="w-full bg-[var(--accent-blue)] hover:bg-[var(--accent-blue)] text-white font-medium py-2.5 px-6 rounded text-sm cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                   >
-                    {saving ? 'Saving...' : 'Continue →'}
+                    {saving ? t('business.saving') : t('business.continue')}
                   </button>
                 </div>
               </>
@@ -487,8 +503,10 @@ export default function Business({ isSetup = false }: BusinessProps): React.JSX.
     <div className="h-full w-full overflow-y-auto bg-[var(--bg-base)]">
       <div className="max-w-4xl mx-auto px-8 py-8">
         <div className="mb-5">
-          <h1 className="text-xl font-semibold text-[var(--text-primary)]">Business Profile</h1>
-          <p className="text-sm text-[var(--text-muted)] mt-1">Edit your business details</p>
+          <h1 className="text-xl font-semibold text-[var(--text-primary)]">
+            {t('business.title')}
+          </h1>
+          <p className="text-sm text-[var(--text-muted)] mt-1">{t('business.editSubtitle')}</p>
         </div>
 
         {!loaded ? (
@@ -504,7 +522,7 @@ export default function Business({ isSetup = false }: BusinessProps): React.JSX.
                 disabled={saving}
                 className="bg-[var(--accent-blue)] hover:bg-[var(--accent-blue)] text-white font-medium py-2.5 px-6 rounded text-sm cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                {saving ? 'Saving...' : 'Save Profile'}
+                {saving ? t('business.saving') : t('business.saveProfile')}
               </button>
             </div>
           </div>

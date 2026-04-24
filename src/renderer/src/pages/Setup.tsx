@@ -1,18 +1,9 @@
 import React, { useEffect, useState } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { useToast } from '../components/Toast'
 
-const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const
-const DAY_LABELS: Record<string, string> = {
-  mon: 'Mon',
-  tue: 'Tue',
-  wed: 'Wed',
-  thu: 'Thu',
-  fri: 'Fri',
-  sat: 'Sat',
-  sun: 'Sun',
-}
 const MONTH_NAMES = [
   'January',
   'February',
@@ -30,6 +21,16 @@ const MONTH_NAMES = [
 
 export default function Setup(): React.JSX.Element {
   const navigate = useNavigate()
+  const { t } = useTranslation()
+  const dayOptions = [
+    { label: t('days.mon'), value: 'mon' },
+    { label: t('days.tue'), value: 'tue' },
+    { label: t('days.wed'), value: 'wed' },
+    { label: t('days.thu'), value: 'thu' },
+    { label: t('days.fri'), value: 'fri' },
+    { label: t('days.sat'), value: 'sat' },
+    { label: t('days.sun'), value: 'sun' },
+  ]
   const [apiKey, setApiKey] = useState('')
   const [workingStart, setWorkingStart] = useState('09:00')
   const [workingEnd, setWorkingEnd] = useState('18:00')
@@ -109,10 +110,10 @@ export default function Setup(): React.JSX.Element {
       if (!profile || !profile.business_name) {
         navigate('/business/setup')
       } else {
-        success('Settings saved.')
+        success(t('toast.settingsSaved'))
       }
     } catch {
-      error('Failed to save settings.')
+      error(t('toast.settingsFailed'))
     }
   }
 
@@ -130,13 +131,13 @@ export default function Setup(): React.JSX.Element {
     try {
       const result = await window.api.reports.exportTasksCsv({})
       if (!result.success) {
-        error('Failed to export tasks CSV.')
+        error(t('toast.exportCsvFailed'))
         return
       }
       triggerCsvDownload(result.csv, result.filename)
       success('Tasks CSV exported.')
     } catch {
-      error('Failed to export tasks CSV.')
+      error(t('toast.exportCsvFailed'))
     }
   }
 
@@ -162,9 +163,9 @@ export default function Setup(): React.JSX.Element {
           <p className="font-mono text-xs tracking-widest text-[var(--text-muted)] uppercase mb-1">
             Execd
           </p>
-          <h1 className="text-xl font-semibold text-[var(--text-primary)]">Setup</h1>
+          <h1 className="text-xl font-semibold text-[var(--text-primary)]">{t('settings.title')}</h1>
           <p className="text-sm text-[var(--text-secondary)] mt-1">
-            Configure your API key and work schedule.
+            {t('settings.subtitle')}
           </p>
         </div>
 
@@ -172,10 +173,10 @@ export default function Setup(): React.JSX.Element {
           <section className="space-y-4">
             <div className="bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded-xl p-5">
               <p className="font-mono text-xs text-[var(--text-muted)] uppercase tracking-widest mb-3">
-                Financial Year
+                {t('settings.financialYear')}
               </p>
               <p className="text-xs text-[var(--text-muted)] mb-3">
-                Select the month your financial year starts
+                {t('settings.financialYearSubtitle')}
               </p>
               <select
                 value={fiscalYearStart}
@@ -196,18 +197,18 @@ export default function Setup(): React.JSX.Element {
                 <option value={12}>December (Dec – Nov)</option>
               </select>
               <p className="text-xs text-[var(--text-muted)] mt-2">
-                Your financial year runs {MONTH_NAMES[fiscalYearStart - 1]} →{' '}
+                {t('settings.financialYearRuns')} {MONTH_NAMES[fiscalYearStart - 1]} →{' '}
                 {MONTH_NAMES[fiscalYearEnd - 1]}
               </p>
             </div>
             <div className="bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-lg p-4 space-y-3">
               <label className="block text-xs font-mono text-[var(--text-muted)] uppercase tracking-widest">
-                Working Schedule
+                {t('settings.workingSchedule')}
               </label>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <p className="text-xs text-[var(--text-secondary)] mb-1">Working Hours</p>
+                  <p className="text-xs text-[var(--text-secondary)] mb-1">{t('settings.workingHours')}</p>
                   <div className="flex items-center gap-2">
                     <input
                       type="time"
@@ -226,7 +227,7 @@ export default function Setup(): React.JSX.Element {
                 </div>
 
                 <div>
-                  <p className="text-xs text-[var(--text-secondary)] mb-1">Break Time</p>
+                  <p className="text-xs text-[var(--text-secondary)] mb-1">{t('settings.breakTime')}</p>
                   <div className="flex items-center gap-2">
                     <input
                       type="time"
@@ -246,19 +247,19 @@ export default function Setup(): React.JSX.Element {
               </div>
 
               <div>
-                <p className="text-xs text-[var(--text-secondary)] mb-1.5">Working Days</p>
+                <p className="text-xs text-[var(--text-secondary)] mb-1.5">{t('settings.workingDays')}</p>
                 <div className="flex gap-1.5 flex-wrap">
-                  {DAYS.map((day) => (
+                  {dayOptions.map((day) => (
                     <button
-                      key={day}
-                      onClick={() => toggleDay(day)}
+                      key={day.value}
+                      onClick={() => toggleDay(day.value)}
                       className={`px-3 py-1.5 rounded text-xs font-mono cursor-pointer transition-colors ${
-                        workingDays.includes(day)
+                        workingDays.includes(day.value)
                           ? 'bg-[var(--accent-blue)] text-white border border-[var(--accent-blue)]'
                           : 'bg-transparent border border-[var(--border-default)] text-[var(--text-secondary)] hover:border-[var(--border-active)]'
                       }`}
                     >
-                      {DAY_LABELS[day]}
+                      {day.label}
                     </button>
                   ))}
                 </div>
@@ -267,11 +268,13 @@ export default function Setup(): React.JSX.Element {
 
             <div className="bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-lg p-4 space-y-3">
               <label className="block text-xs font-mono text-[var(--text-muted)] uppercase tracking-widest">
-                Monthly Goal Slots
+                {t('settings.goalSlots')}
               </label>
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <p className="text-xs text-[var(--text-secondary)] mb-1">Business</p>
+                  <p className="text-xs text-[var(--text-secondary)] mb-1">
+                    {t('settings.businessGoals')}
+                  </p>
                   <input
                     type="number"
                     min={3}
@@ -281,7 +284,9 @@ export default function Setup(): React.JSX.Element {
                   />
                 </div>
                 <div>
-                  <p className="text-xs text-[var(--text-secondary)] mb-1">Personal</p>
+                  <p className="text-xs text-[var(--text-secondary)] mb-1">
+                    {t('settings.personalGoals')}
+                  </p>
                   <input
                     type="number"
                     min={1}
@@ -291,7 +296,9 @@ export default function Setup(): React.JSX.Element {
                   />
                 </div>
                 <div>
-                  <p className="text-xs text-[var(--text-secondary)] mb-1">Family</p>
+                  <p className="text-xs text-[var(--text-secondary)] mb-1">
+                    {t('settings.familyGoals')}
+                  </p>
                   <input
                     type="number"
                     min={1}
@@ -301,13 +308,11 @@ export default function Setup(): React.JSX.Element {
                   />
                 </div>
               </div>
-              <p className="text-[var(--text-muted)] text-xs">
-                Minimum: 3 business, 1 personal, 1 family.
-              </p>
+              <p className="text-[var(--text-muted)] text-xs">{t('settings.minimumGoals')}</p>
             </div>
             <div className="bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-lg p-4 space-y-3">
               <label className="block text-xs font-mono text-[var(--text-muted)] uppercase tracking-widest">
-                Daily Task Limit
+                {t('settings.dailyTaskLimit')}
               </label>
               <div className="flex gap-1.5 flex-wrap">
                 {[5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15].map((value) => (
@@ -329,14 +334,14 @@ export default function Setup(): React.JSX.Element {
             <section className="bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-lg p-4 space-y-3 self-end">
               <div>
                 <label className="block text-xs font-mono text-[var(--text-muted)] uppercase tracking-widest mb-2">
-                  API Key
+                  {t('settings.apiKey')}
                 </label>
                 <div className="relative">
                   <input
                     type={showKey ? 'text' : 'password'}
                     value={apiKey}
                     onChange={(e) => setApiKey(e.target.value)}
-                    placeholder="sk-..."
+                    placeholder={t('settings.apiKeyPlaceholder')}
                     className="w-full bg-[var(--bg-base)] border border-[var(--border-default)] focus:border-[var(--border-active)] rounded px-3 py-2 text-sm text-[var(--text-primary)] outline-none transition-colors pr-10"
                   />
                   <button
@@ -347,7 +352,7 @@ export default function Setup(): React.JSX.Element {
                   </button>
                 </div>
                 <p className="text-[var(--text-muted)] text-xs mt-1.5">
-                  Stored encrypted on your machine. Never sent anywhere else.
+                  {t('settings.apiKeyNote')}
                 </p>
               </div>
             </section>
@@ -361,25 +366,25 @@ export default function Setup(): React.JSX.Element {
             onClick={handleSave}
             className="w-full xl:w-auto xl:min-w-56 bg-(--accent-blue) hover:bg-[--accent-blue-dim] text-white font-medium py-2.5 px-6 rounded text-sm cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            Save Settings
+            {t('settings.saveSettings')}
           </button>
         </div>
         <div className="pt-4">
           <p className="block text-xs font-mono text-[var(--text-muted)] uppercase tracking-widest mb-2">
-            Data
+            {t('settings.data')}
           </p>
           <div className="flex items-center gap-4">
             <button
               onClick={handleDownloadTaskHistory}
               className="text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)] cursor-pointer transition-colors underline"
             >
-              Download Task History
+              {t('settings.downloadTaskHistory')}
             </button>
             <button
               onClick={handleDownloadDailySummary}
               className="text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)] cursor-pointer transition-colors underline"
             >
-              Download Daily Summary
+              {t('settings.downloadDailySummary')}
             </button>
           </div>
         </div>

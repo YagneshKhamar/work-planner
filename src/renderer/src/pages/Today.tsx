@@ -1,7 +1,9 @@
 import { Fragment, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CheckCircle, FileText, Users } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useToast } from '../components/Toast'
+import i18n from '../i18n/index'
 
 interface Task {
   id: string
@@ -61,6 +63,7 @@ function getTomorrow(): string {
 
 export default function Today(): React.JSX.Element {
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const [tasks, setTasks] = useState<Task[]>([])
   const [dayPlan, setDayPlan] = useState<DayPlan | null>(null)
   const [loading, setLoading] = useState(true)
@@ -146,7 +149,7 @@ export default function Today(): React.JSX.Element {
         setSubgoalOptions(options)
       } catch (e) {
         console.error('Failed to load subgoals for add task modal:', e)
-        error('Failed to load subgoals.')
+        error(t('toast.loadSubgoalsFailed'))
       }
     }
     loadSubgoalsForModal()
@@ -225,9 +228,9 @@ export default function Today(): React.JSX.Element {
         collection_amount: Number(collectionEntry) || 0,
       })
       await loadSalesData()
-      success('Sales entry saved.')
+      success(t('toast.salesSaved'))
     } catch {
-      error('Failed to save sales entry.')
+      error(t('toast.salesSaveFailed'))
     } finally {
       setSavingSales(false)
     }
@@ -236,7 +239,7 @@ export default function Today(): React.JSX.Element {
   async function handleCarryOver(task: Task): Promise<void> {
     const currentCount = await window.api.tasks.getCarryOverCount(getToday())
     if (currentCount >= 2) {
-      error('Max 2 carry-over tasks. Drop one first.')
+      error(t('toast.maxCarryOver'))
       return
     }
     setCarryOverProcessing(true)
@@ -271,7 +274,7 @@ export default function Today(): React.JSX.Element {
       const goals = (await window.api.goals.get(month)) as { id: string }[]
 
       if (!goals || goals.length === 0) {
-        error('Please add goals to generate tasks.')
+        error(t('toast.noGoalsGenerate'))
         setGenerating(false)
         return
       }
@@ -312,7 +315,7 @@ export default function Today(): React.JSX.Element {
       })
 
       if (!result.success || !result.data) {
-        error('Failed to generate tasks. Check your API key.')
+        error(t('toast.generateFailed'))
         setGenerating(false)
         return
       }
@@ -339,9 +342,9 @@ export default function Today(): React.JSX.Element {
       )
 
       await loadTodayData()
-      success('Tasks generated for today.')
+      success(t('toast.tasksGenerated'))
     } catch (e) {
-      error('Failed to generate tasks. Check your API key.')
+      error(t('toast.generateFailed'))
       console.error(e)
     } finally {
       setGenerating(false)
@@ -356,7 +359,7 @@ export default function Today(): React.JSX.Element {
       const goals = (await window.api.goals.get(month)) as { id: string }[]
 
       if (!goals || goals.length === 0) {
-        error('No goals set for this month.')
+        error(t('toast.noGoals'))
         setGeneratingTomorrow(false)
         return
       }
@@ -397,7 +400,7 @@ export default function Today(): React.JSX.Element {
       })
 
       if (!result.success || !result.data) {
-        error('Failed to generate tasks. Check your API key.')
+        error(t('toast.generateFailed'))
         setGeneratingTomorrow(false)
         return
       }
@@ -423,9 +426,9 @@ export default function Today(): React.JSX.Element {
         })),
       )
 
-      success("Tomorrow's tasks generated.")
+      success(t('toast.tomorrowGenerated'))
     } catch (e) {
-      error("Failed to generate tomorrow's tasks.")
+      error(t('toast.tomorrowFailed'))
       console.error(e)
     } finally {
       setGeneratingTomorrow(false)
@@ -439,13 +442,13 @@ export default function Today(): React.JSX.Element {
       setEndDayResult({ score: result.score, feedback: result.feedback })
       setDayEnded(true)
       await loadTodayData()
-      success('Day complete. Good work.')
+      success(t('toast.dayComplete'))
       // Auto-generate tomorrow in background
       generateTomorrowTasks().catch(() => {
         // Silent fail — user can manually generate if needed
       })
     } catch (e) {
-      error('Failed to end day. Try again.')
+      error(t('toast.endDayFailed'))
       console.error(e)
     } finally {
       setEndingDay(false)
@@ -458,9 +461,9 @@ export default function Today(): React.JSX.Element {
     try {
       await window.api.tasks.lockDayPlan(getToday())
       await loadTodayData()
-      success('Plan locked. Day started.')
+      success(t('toast.planLocked'))
     } catch {
-      error('Failed to lock plan.')
+      error(t('toast.planLockFailed'))
     } finally {
       setLocking(false)
     }
@@ -509,10 +512,12 @@ export default function Today(): React.JSX.Element {
         scheduled_time_slot: 'anytime',
       })
       setSelectedSubgoalId('')
-      success(`Task added for ${addingForDate}.`)
+      success(
+        `${t('toast.taskAdded')} ${addingForDate === 'today' ? t('dashboard.today') : t('dashboard.tomorrow')}`,
+      )
     } catch (e) {
       console.error('Failed to add task:', e)
-      error('Failed to add task.')
+      error(t('toast.taskFailed'))
     } finally {
       setAddingTask(false)
     }
@@ -562,7 +567,7 @@ export default function Today(): React.JSX.Element {
                   type="text"
                   value={newTask.title}
                   onChange={(e) => setNewTask((prev) => ({ ...prev, title: e.target.value }))}
-                  placeholder="What needs to be done?"
+                  placeholder={t('dashboard.whatNeedsDone')}
                   className="w-full bg-[var(--bg-base)] border border-[var(--border-default)] focus:border-[var(--border-active)] rounded px-3 py-2 text-sm text-[var(--text-primary)] outline-none"
                 />
                 <div>
@@ -646,7 +651,7 @@ export default function Today(): React.JSX.Element {
                     onChange={(e) => setSelectedSubgoalId(e.target.value)}
                     className="w-full bg-[var(--bg-base)] border border-[var(--border-default)] focus:border-[var(--border-active)] rounded px-3 py-2 text-sm text-[var(--text-primary)] outline-none"
                   >
-                    <option value="">Select subgoal</option>
+                    <option value="">{t('dashboard.selectSubgoal')}</option>
                     {subgoalOptions.map((subgoal) => (
                       <option key={subgoal.id} value={subgoal.id}>
                         [{subgoal.goalType}] — {subgoal.title}
@@ -679,11 +684,12 @@ export default function Today(): React.JSX.Element {
           <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-6">
             <div className="bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-xl p-6 w-full max-w-sm">
               <h2 className="text-[var(--text-primary)] font-semibold text-base mb-1">
-                Missed Yesterday
+                {t('dashboard.missedYesterday')}
               </h2>
               <p className="text-[var(--text-secondary)] text-xs mb-4">
-                You missed {missedFromYesterday.length} task
-                {missedFromYesterday.length > 1 ? 's' : ''} yesterday. Max 2 can carry forward.
+                {missedFromYesterday.length > 1
+                  ? t('dashboard.missedCountPlural', { count: missedFromYesterday.length })
+                  : t('dashboard.missedCount', { count: missedFromYesterday.length })}
               </p>
               <div className="space-y-3 mb-5">
                 {missedFromYesterday.map((task) => (
@@ -698,14 +704,14 @@ export default function Today(): React.JSX.Element {
                         disabled={carryOverProcessing}
                         className="flex-1 bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-dim)] text-white text-xs font-medium py-1.5 rounded cursor-pointer transition-colors"
                       >
-                        Carry Forward
+                        {t('dashboard.carryForward')}
                       </button>
                       <button
                         onClick={() => handleDrop(task)}
                         disabled={carryOverProcessing}
                         className="flex-1 bg-transparent border border-[var(--border-default)] hover:border-[var(--border-active)] text-[var(--text-secondary)] text-xs font-medium py-1.5 rounded cursor-pointer transition-colors"
                       >
-                        Drop
+                        {t('dashboard.drop')}
                       </button>
                     </div>
                   </div>
@@ -716,7 +722,7 @@ export default function Today(): React.JSX.Element {
                 onClick={handleDismissCarryOver}
                 className="w-full text-[var(--text-muted)] hover:text-[var(--text-secondary)] text-xs cursor-pointer transition-colors mt-2 text-center"
               >
-                Mark all as missed and continue
+                {t('dashboard.markAllMissed')}
               </button>
             </div>
           </div>
@@ -731,7 +737,9 @@ export default function Today(): React.JSX.Element {
               })}
             </h1>
             <p className="text-sm text-[var(--text-secondary)] mt-0.5">
-              {new Date().toLocaleDateString('en-US', { weekday: 'long' })}
+              {new Date().toLocaleDateString(i18n.language === 'gu' ? 'gu-IN' : 'en-US', {
+                weekday: 'long',
+              })}
             </p>
           </div>
           <span
@@ -751,7 +759,7 @@ export default function Today(): React.JSX.Element {
           <div className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-xl p-4 mb-6">
             <div className="flex items-center justify-between mb-3">
               <p className="font-mono text-xs text-[var(--text-muted)] uppercase tracking-widest">
-                Sales & Collection
+                {t('dashboard.salesCollection')}
               </p>
               <p className="font-mono text-xs text-[var(--text-muted)]">
                 {new Date().toLocaleDateString('en-US', { month: 'long' })}
@@ -760,7 +768,9 @@ export default function Today(): React.JSX.Element {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <p className="text-xs text-[var(--text-secondary)] mb-1">Sales Today</p>
+                <p className="text-xs text-[var(--text-secondary)] mb-1">
+                  {t('dashboard.salesToday')}
+                </p>
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-[var(--text-muted)] font-mono">₹</span>
                   <input
@@ -778,12 +788,14 @@ export default function Today(): React.JSX.Element {
                 </div>
                 <p className="text-xs text-[var(--text-muted)]">
                   ₹{monthSummary.sales_done.toLocaleString('en-IN')} of ₹
-                  {monthSummary.sales_target.toLocaleString('en-IN')} this month
+                  {monthSummary.sales_target.toLocaleString('en-IN')} {t('dashboard.thisMonth')}
                 </p>
               </div>
 
               <div>
-                <p className="text-xs text-[var(--text-secondary)] mb-1">Collection Today</p>
+                <p className="text-xs text-[var(--text-secondary)] mb-1">
+                  {t('dashboard.collectionToday')}
+                </p>
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-[var(--text-muted)] font-mono">₹</span>
                   <input
@@ -801,7 +813,8 @@ export default function Today(): React.JSX.Element {
                 </div>
                 <p className="text-xs text-[var(--text-muted)]">
                   ₹{monthSummary.collection_done.toLocaleString('en-IN')} of ₹
-                  {monthSummary.collection_target.toLocaleString('en-IN')} this month
+                  {monthSummary.collection_target.toLocaleString('en-IN')}{' '}
+                  {t('dashboard.thisMonth')}
                 </p>
               </div>
             </div>
@@ -811,7 +824,7 @@ export default function Today(): React.JSX.Element {
               disabled={savingSales}
               className="mt-3 bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-dim)] disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-medium py-1.5 px-4 rounded cursor-pointer transition-colors"
             >
-              {savingSales ? 'Saving...' : 'Save'}
+              {savingSales ? 'Saving...' : t('dashboard.save')}
             </button>
             {todaySales && (
               <p className="text-xs text-[var(--text-muted)] mt-1">
@@ -837,7 +850,7 @@ export default function Today(): React.JSX.Element {
                 {score}%
               </div>
               <div className="text-xs text-[var(--text-muted)] mt-1 uppercase tracking-wider">
-                execution score
+                {t('dashboard.executionScore')}
               </div>
               <div className="h-0.5 mt-2 bg-[var(--border-default)] rounded">
                 <div
@@ -857,7 +870,7 @@ export default function Today(): React.JSX.Element {
                 {completedCount} / {totalCount}
               </div>
               <div className="text-xs text-[var(--text-muted)] mt-1 uppercase tracking-wider">
-                tasks
+                {t('dashboard.tasks')}
               </div>
             </div>
             <div className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-xl p-4">
@@ -865,7 +878,7 @@ export default function Today(): React.JSX.Element {
                 {tasks.filter((t) => t.status !== 'completed').length}
               </div>
               <div className="text-xs text-[var(--text-muted)] mt-1 uppercase tracking-wider">
-                remaining
+                {t('dashboard.remaining')}
               </div>
             </div>
             <div className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-xl p-4">
@@ -877,7 +890,7 @@ export default function Today(): React.JSX.Element {
                 {carriedCount}
               </div>
               <div className="text-xs text-[var(--text-muted)] mt-1 uppercase tracking-wider">
-                carried over
+                {t('dashboard.carriedOver')}
               </div>
             </div>
           </div>
@@ -1006,7 +1019,7 @@ export default function Today(): React.JSX.Element {
                             onChange={(e) =>
                               setNotesInput((prev) => ({ ...prev, [task.id]: e.target.value }))
                             }
-                            placeholder="Add notes, links, context..."
+                            placeholder={t('dashboard.addNotesContext')}
                             rows={3}
                             className="w-full bg-[var(--bg-base)] border border-[var(--border-default)] focus:border-[var(--border-active)] rounded px-3 py-2 text-xs text-[var(--text-primary)] placeholder-[var(--text-muted)] outline-none resize-none transition-colors font-mono"
                           />
@@ -1047,11 +1060,13 @@ export default function Today(): React.JSX.Element {
                 </div>
                 {openProofTaskId === task.id && task.proof_type !== 'none' && (
                   <div className="bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded-lg px-3 py-2 mb-2">
-                    <p className="text-xs text-[var(--text-muted)] mb-1.5">Proof (optional)</p>
+                    <p className="text-xs text-[var(--text-muted)] mb-1.5">
+                      {t('dashboard.proofOptional')}
+                    </p>
                     {task.proof_type === 'link' ? (
                       <input
                         type="text"
-                        placeholder="Paste link..."
+                        placeholder={t('dashboard.pasteLinkPlaceholder')}
                         value={proofInputs[task.id] ?? task.proof_value ?? ''}
                         onChange={(e) =>
                           setProofInputs((prev) => ({ ...prev, [task.id]: e.target.value }))
@@ -1061,7 +1076,7 @@ export default function Today(): React.JSX.Element {
                     ) : (
                       <textarea
                         rows={2}
-                        placeholder="Add note..."
+                        placeholder={t('dashboard.addNotePlaceholder')}
                         value={proofInputs[task.id] ?? task.proof_value ?? ''}
                         onChange={(e) =>
                           setProofInputs((prev) => ({ ...prev, [task.id]: e.target.value }))
@@ -1155,17 +1170,20 @@ export default function Today(): React.JSX.Element {
             )}
 
             {/* End Day — divider + button */}
-            {isLocked && tasks.length > 0 && !dayEnded && !tasks.every((t) => t.status === 'completed') && (
-              <div className="border-t border-[var(--border-subtle)] pt-2 mt-1">
-                <button
-                  onClick={handleEndDay}
-                  disabled={endingDay}
-                  className="w-full bg-[var(--accent-red)]/10 border border-[var(--accent-red)]/40 hover:bg-[var(--accent-red)]/20 hover:border-[var(--accent-red)] text-[var(--accent-red)] font-medium py-2.5 rounded text-sm cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  {endingDay ? 'Ending day...' : 'End Day'}
-                </button>
-              </div>
-            )}
+            {isLocked &&
+              tasks.length > 0 &&
+              !dayEnded &&
+              !tasks.every((t) => t.status === 'completed') && (
+                <div className="border-t border-[var(--border-subtle)] pt-2 mt-1">
+                  <button
+                    onClick={handleEndDay}
+                    disabled={endingDay}
+                    className="w-full bg-[var(--accent-red)]/10 border border-[var(--accent-red)]/40 hover:bg-[var(--accent-red)]/20 hover:border-[var(--accent-red)] text-[var(--accent-red)] font-medium py-2.5 rounded text-sm cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {endingDay ? 'Ending day...' : 'End Day'}
+                  </button>
+                </div>
+              )}
           </div>
 
           {dayEnded && endDayResult && (
@@ -1191,7 +1209,7 @@ export default function Today(): React.JSX.Element {
           {isLocked && !dayEnded && tasks.every((t) => t.status === 'completed') && (
             <div className="bg-[var(--accent-green)]/5 border border-[var(--accent-green)]/20 rounded-xl px-4 py-3 flex items-center gap-2 text-[var(--accent-green)] text-sm">
               <CheckCircle className="w-4 h-4" />
-              <p>All tasks complete</p>
+              <p>{t('dashboard.allComplete')}</p>
             </div>
           )}
         </div>
