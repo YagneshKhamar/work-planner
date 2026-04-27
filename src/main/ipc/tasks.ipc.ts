@@ -6,6 +6,102 @@ import { v4 as uuidv4 } from 'uuid'
 
 const EFFORT_WEIGHT: Record<string, number> = { light: 1, medium: 2, heavy: 3 }
 
+export async function runEndOfDay(date: string, skipAiFeedback = false): Promise<void> {
+  const db = getDatabase()
+
+  type TaskRow = {
+    id: string
+    title: string
+    effort: string
+    proof_type: string
+    proof_value: string | null
+    status: string
+    carry_count: number
+  }
+
+  const allTasks = db
+    .prepare(
+      `SELECT * FROM tasks WHERE scheduled_date = ? AND status NOT IN ('dropped', 'carried')`,
+    )
+    .all(date) as TaskRow[]
+
+  const pendingTasks = allTasks.filter((t) => t.status === 'pending')
+  const completedTasks = allTasks.filter((t) => t.status === 'completed')
+
+  const updateMissed = db.prepare(`UPDATE tasks SET status = 'missed' WHERE id = ?`)
+  const insertLog = db.prepare(`
+    INSERT INTO task_logs (id, task_id, date, action, proof_type, proof_value, carry_count_at_time)
+    VALUES (?, ?, ?, 'missed', null, null, ?)
+  `)
+  db.transaction(() => {
+    for (const task of pendingTasks) {
+      updateMissed.run(task.id)
+      insertLog.run(uuidv4(), task.id, date, task.carry_count)
+    }
+  })()
+
+  const scorable = [...completedTasks, ...pendingTasks]
+  const totalWeight = scorable.reduce((s, t) => s + (EFFORT_WEIGHT[t.effort] ?? 1), 0)
+  const completedWeight = completedTasks.reduce((s, t) => s + (EFFORT_WEIGHT[t.effort] ?? 1), 0)
+  const score = totalWeight > 0 ? completedWeight / totalWeight : 0
+
+  let feedback = ''
+  if (!skipAiFeedback) {
+    try {
+      feedback = await generateEndOfDayFeedback({
+        score,
+        completed: completedTasks.map((t) => ({ title: t.title, proof_type: t.proof_type })),
+        missed: pendingTasks.map((t) => ({ title: t.title })),
+        flags: [],
+        history: [],
+      })
+    } catch {
+      feedback = ''
+    }
+  }
+
+  const existing = db.prepare(`SELECT id FROM day_logs WHERE date = ?`).get(date)
+  if (!existing) {
+    db.prepare(
+      `
+      INSERT INTO day_logs
+        (id, date, total_weight, completed_weight, execution_score, ai_feedback,
+         tasks_completed, tasks_missed, tasks_carried, tasks_dropped)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0)
+    `,
+    ).run(
+      uuidv4(),
+      date,
+      totalWeight,
+      completedWeight,
+      score,
+      feedback,
+      completedTasks.length,
+      pendingTasks.length,
+    )
+  } else {
+    db.prepare(
+      `
+      UPDATE day_logs SET
+        total_weight = ?, completed_weight = ?, execution_score = ?,
+        ai_feedback = CASE WHEN ai_feedback = '' OR ai_feedback IS NULL THEN ? ELSE ai_feedback END,
+        tasks_completed = ?, tasks_missed = ?
+      WHERE date = ?
+    `,
+    ).run(
+      totalWeight,
+      completedWeight,
+      score,
+      feedback,
+      completedTasks.length,
+      pendingTasks.length,
+      date,
+    )
+  }
+
+  detectBehaviorPatterns(date)
+}
+
 export function registerTasksHandlers(): void {
   ipcMain.handle('tasks:get-by-date', (_event, date: string) => {
     const db = getDatabase()
@@ -60,6 +156,19 @@ export function registerTasksHandlers(): void {
       }[],
     ) => {
       const db = getDatabase()
+
+      // Delete existing pending tasks for the dates being saved — prevent duplicates on regenerate
+      const dates = [
+        ...new Set((tasks as { scheduled_date: string }[]).map((t) => t.scheduled_date)),
+      ]
+      const deletePending = db.prepare(
+        `DELETE FROM tasks WHERE scheduled_date = ? AND status = 'pending'`,
+      )
+      db.transaction(() => {
+        for (const date of dates) {
+          deletePending.run(date)
+        }
+      })()
 
       const insert = db.prepare(`
       INSERT INTO tasks (
@@ -227,6 +336,19 @@ export function registerTasksHandlers(): void {
 
     db.prepare(`UPDATE tasks SET status = 'carried' WHERE id = ?`).run(taskId)
 
+    // Increment tasks_carried on the source date's day_log
+    const sourceTask = db.prepare('SELECT scheduled_date FROM tasks WHERE id = ?').get(taskId) as
+      | { scheduled_date: string }
+      | undefined
+    if (sourceTask?.scheduled_date) {
+      db.prepare(
+        `
+    UPDATE day_logs SET tasks_carried = COALESCE(tasks_carried, 0) + 1
+    WHERE date = ?
+  `,
+      ).run(sourceTask.scheduled_date)
+    }
+
     return { success: true, newTaskId: newId }
   })
 
@@ -264,98 +386,22 @@ export function registerTasksHandlers(): void {
 
   ipcMain.handle('tasks:end-of-day', async (_event, date: string) => {
     const db = getDatabase()
-
-    type TaskRow = {
-      id: string
-      title: string
-      effort: string
-      proof_type: string
-      proof_value: string | null
-      status: string
-      carry_count: number
-    }
-
+    await runEndOfDay(date, false)
+    const result = db.prepare(`SELECT * FROM day_logs WHERE date = ?`).get(date) as Record<
+      string,
+      unknown
+    >
     const allTasks = db
       .prepare(
         `SELECT * FROM tasks WHERE scheduled_date = ? AND status NOT IN ('dropped', 'carried')`,
       )
-      .all(date) as TaskRow[]
-
-    const pendingTasks = allTasks.filter((t) => t.status === 'pending')
-    const completedTasks = allTasks.filter((t) => t.status === 'completed')
-
-    // Mark pending tasks as missed
-    const updateMissed = db.prepare(`UPDATE tasks SET status = 'missed' WHERE id = ?`)
-    const insertLog = db.prepare(`
-      INSERT INTO task_logs (id, task_id, date, action, proof_type, proof_value, carry_count_at_time)
-      VALUES (?, ?, ?, 'missed', null, null, ?)
-    `)
-    db.transaction(() => {
-      for (const task of pendingTasks) {
-        updateMissed.run(task.id)
-        insertLog.run(uuidv4(), task.id, date, task.carry_count)
-      }
-    })()
-
-    // Compute score
-    const scorable = [...completedTasks, ...pendingTasks]
-    const totalWeight = scorable.reduce((s, t) => s + (EFFORT_WEIGHT[t.effort] ?? 1), 0)
-    const completedWeight = completedTasks.reduce((s, t) => s + (EFFORT_WEIGHT[t.effort] ?? 1), 0)
-    const score = totalWeight > 0 ? completedWeight / totalWeight : 0
-
-    // Get AI feedback
-    let feedback = ''
-    try {
-      feedback = await generateEndOfDayFeedback({
-        score,
-        completed: completedTasks.map((t) => ({ title: t.title, proof_type: t.proof_type })),
-        missed: pendingTasks.map((t) => ({ title: t.title })),
-        flags: [],
-        history: [],
-      })
-    } catch {
-      feedback = 'Feedback unavailable.'
+      .all(date) as Record<string, unknown>[]
+    return {
+      score: result?.execution_score ?? 0,
+      feedback: result?.ai_feedback ?? '',
+      completed: allTasks.filter((t) => t.status === 'completed'),
+      missed: allTasks.filter((t) => t.status === 'missed'),
     }
-
-    // Upsert day_logs
-    const existing = db.prepare(`SELECT id FROM day_logs WHERE date = ?`).get(date)
-    if (existing) {
-      db.prepare(
-        `
-        UPDATE day_logs SET
-          total_weight = ?, completed_weight = ?, execution_score = ?,
-          ai_feedback = ?, tasks_completed = ?, tasks_missed = ?
-        WHERE date = ?
-      `,
-      ).run(
-        totalWeight,
-        completedWeight,
-        score,
-        feedback,
-        completedTasks.length,
-        pendingTasks.length,
-        date,
-      )
-    } else {
-      db.prepare(
-        `INSERT INTO day_logs
-          (id, date, total_weight, completed_weight, execution_score, ai_feedback, tasks_completed, tasks_missed, tasks_carried, tasks_dropped)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0)`,
-      ).run(
-        uuidv4(),
-        date,
-        totalWeight,
-        completedWeight,
-        score,
-        feedback,
-        completedTasks.length,
-        pendingTasks.length,
-      )
-    }
-
-    detectBehaviorPatterns(date)
-
-    return { score, feedback, completed: completedTasks, missed: pendingTasks }
   })
 
   ipcMain.handle(
@@ -427,6 +473,43 @@ export function registerTasksHandlers(): void {
     `,
     ).run(uuidv4(), taskId, today, taskId, proof)
 
+    return { success: true }
+  })
+
+  ipcMain.handle('tasks:replan', (_event, date: string) => {
+    const db = getDatabase()
+
+    // Only allow if plan exists, is locked, and replan not yet used
+    const plan = db.prepare('SELECT * FROM day_plans WHERE date = ?').get(date) as
+      | Record<string, unknown>
+      | undefined
+    if (!plan) return { success: false, reason: 'No plan found for today' }
+    if (!plan.locked) return { success: false, reason: 'Plan is not locked yet' }
+    if (plan.replan_used) return { success: false, reason: 'Replan already used today' }
+
+    // Delete only pending tasks for today — keep completed, carried, dropped
+    db.prepare(
+      `
+    DELETE FROM tasks
+    WHERE scheduled_date = ? AND status = 'pending'
+  `,
+    ).run(date)
+
+    // Unlock the plan and mark replan used
+    db.prepare(
+      `
+    UPDATE day_plans
+    SET locked = 0, replan_used = 1
+    WHERE date = ?
+  `,
+    ).run(date)
+
+    return { success: true }
+  })
+
+  ipcMain.handle('tasks:mark-replan-used', (_event, date: string) => {
+    const db = getDatabase()
+    db.prepare('UPDATE day_plans SET replan_used = 1 WHERE date = ?').run(date)
     return { success: true }
   })
 }

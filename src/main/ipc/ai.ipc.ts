@@ -22,9 +22,13 @@ function getBusinessContext(): string {
     const activities = (() => {
       try {
         return JSON.parse(String(profile.primary_activities || '[]')) as string[]
-      } catch {
-        return [] as string[]
-      }
+      } catch { return [] as string[] }
+    })()
+
+    const departments = (() => {
+      try {
+        return JSON.parse(String(profile.departments || '[]')) as string[]
+      } catch { return [] as string[] }
     })()
 
     const businessType = String(profile.business_type || '').startsWith('other:')
@@ -33,9 +37,11 @@ function getBusinessContext(): string {
 
     const parts = [
       profile.business_name ? `Business: ${String(profile.business_name)}` : '',
-      businessType ? `Type: ${businessType}` : '',
+      businessType ? `Industry: ${businessType}` : '',
       `Team size: ${String(profile.team_size || 1)}`,
+      departments.length > 0 ? `Departments: ${departments.join(', ')}` : '',
       activities.length > 0 ? `Primary activities: ${activities.join(', ')}` : '',
+      profile.business_description ? `About the business: ${String(profile.business_description)}` : '',
       profile.monthly_sales_target
         ? `Yearly sales target: ₹${String(profile.monthly_sales_target)}`
         : '',
@@ -75,9 +81,6 @@ async function callAI(prompt: string, systemPrompt: string): Promise<string> {
   const provider = AI_PROVIDER
   const encryptedApiKey = config.api_key_encrypted as string | undefined
   const isEncrypted = Number(config.api_key_is_encrypted ?? 0) === 1
-  console.log('encryptedApiKey', encryptedApiKey)
-  console.log('isEncrypted', isEncrypted)
-  console.log('safeStorage.isEncryptionAvailable()', safeStorage.isEncryptionAvailable())
 
   let apiKey = ''
   if (encryptedApiKey) {
@@ -87,9 +90,6 @@ async function callAI(prompt: string, systemPrompt: string): Promise<string> {
       apiKey = encryptedApiKey
     }
   }
-
-  console.log('apiKey', apiKey)
-  console.log('provider', provider)
 
   if (!apiKey && provider !== 'ollama') {
     throw new Error('API key is missing. Please set it in Settings.')

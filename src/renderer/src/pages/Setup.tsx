@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
+import SearchableSelect, { type SelectOption } from '../components/SearchableSelect'
 import { useToast } from '../components/Toast'
 
 const MONTH_NAMES = [
@@ -163,10 +164,10 @@ export default function Setup(): React.JSX.Element {
           <p className="font-mono text-xs tracking-widest text-[var(--text-muted)] uppercase mb-1">
             Execd
           </p>
-          <h1 className="text-xl font-semibold text-[var(--text-primary)]">{t('settings.title')}</h1>
-          <p className="text-sm text-[var(--text-secondary)] mt-1">
-            {t('settings.subtitle')}
-          </p>
+          <h1 className="text-xl font-semibold text-[var(--text-primary)]">
+            {t('settings.title')}
+          </h1>
+          <p className="text-sm text-[var(--text-secondary)] mt-1">{t('settings.subtitle')}</p>
         </div>
 
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
@@ -178,24 +179,24 @@ export default function Setup(): React.JSX.Element {
               <p className="text-xs text-[var(--text-muted)] mb-3">
                 {t('settings.financialYearSubtitle')}
               </p>
-              <select
-                value={fiscalYearStart}
-                onChange={(e) => setFiscalYearStart(Number(e.target.value))}
-                className="bg-[var(--bg-base)] border border-[var(--border-default)] focus:border-[var(--border-active)] rounded px-3 py-2 text-sm text-[var(--text-primary)] outline-none w-full cursor-pointer"
-              >
-                <option value={1}>January (Jan – Dec)</option>
-                <option value={2}>February (Feb – Jan)</option>
-                <option value={3}>March (Mar – Feb)</option>
-                <option value={4}>April (Apr – Mar) — Indian FY</option>
-                <option value={5}>May (May – Apr)</option>
-                <option value={6}>June (Jun – May)</option>
-                <option value={7}>July (Jul – Jun)</option>
-                <option value={8}>August (Aug – Jul)</option>
-                <option value={9}>September (Sep – Aug)</option>
-                <option value={10}>October (Oct – Sep)</option>
-                <option value={11}>November (Nov – Oct)</option>
-                <option value={12}>December (Dec – Nov)</option>
-              </select>
+              <SearchableSelect
+                value={String(fiscalYearStart ?? 4)}
+                onChange={(val) => setFiscalYearStart(Number(val))}
+                options={[
+                  { value: '1', label: 'January (Jan – Dec)' },
+                  { value: '2', label: 'February (Feb – Jan)' },
+                  { value: '3', label: 'March (Mar – Feb)' },
+                  { value: '4', label: 'April (Apr – Mar) — Indian FY' },
+                  { value: '5', label: 'May (May – Apr)' },
+                  { value: '6', label: 'June (Jun – May)' },
+                  { value: '7', label: 'July (Jul – Jun)' },
+                  { value: '8', label: 'August (Aug – Jul)' },
+                  { value: '9', label: 'September (Sep – Aug)' },
+                  { value: '10', label: 'October (Oct – Sep)' },
+                  { value: '11', label: 'November (Nov – Oct)' },
+                  { value: '12', label: 'December (Dec – Nov)' },
+                ].map((option): SelectOption => option)}
+              />
               <p className="text-xs text-[var(--text-muted)] mt-2">
                 {t('settings.financialYearRuns')} {MONTH_NAMES[fiscalYearStart - 1]} →{' '}
                 {MONTH_NAMES[fiscalYearEnd - 1]}
@@ -208,7 +209,9 @@ export default function Setup(): React.JSX.Element {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <p className="text-xs text-[var(--text-secondary)] mb-1">{t('settings.workingHours')}</p>
+                  <p className="text-xs text-[var(--text-secondary)] mb-1">
+                    {t('settings.workingHours')}
+                  </p>
                   <div className="flex items-center gap-2">
                     <input
                       type="time"
@@ -227,7 +230,9 @@ export default function Setup(): React.JSX.Element {
                 </div>
 
                 <div>
-                  <p className="text-xs text-[var(--text-secondary)] mb-1">{t('settings.breakTime')}</p>
+                  <p className="text-xs text-[var(--text-secondary)] mb-1">
+                    {t('settings.breakTime')}
+                  </p>
                   <div className="flex items-center gap-2">
                     <input
                       type="time"
@@ -247,7 +252,9 @@ export default function Setup(): React.JSX.Element {
               </div>
 
               <div>
-                <p className="text-xs text-[var(--text-secondary)] mb-1.5">{t('settings.workingDays')}</p>
+                <p className="text-xs text-[var(--text-secondary)] mb-1.5">
+                  {t('settings.workingDays')}
+                </p>
                 <div className="flex gap-1.5 flex-wrap">
                   {dayOptions.map((day) => (
                     <button

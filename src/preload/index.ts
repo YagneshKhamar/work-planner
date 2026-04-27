@@ -58,6 +58,8 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.invoke('tasks:get-history', filters),
     updateProof: (taskId: string, proof: string) =>
       ipcRenderer.invoke('tasks:update-proof', taskId, proof),
+    replan: (date: string) => ipcRenderer.invoke('tasks:replan', date),
+    markReplanUsed: (date: string) => ipcRenderer.invoke('tasks:mark-replan-used', date),
   },
   reports: {
     week: (endDate: string) => ipcRenderer.invoke('reports:week', endDate),
@@ -68,6 +70,8 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.invoke('reports:export-tasks-csv', filters),
     exportSummaryCsv: (filters: { year?: string }) =>
       ipcRenderer.invoke('reports:export-summary-csv', filters),
+    missedPatterns: (fromDate: string, toDate: string, minCount: number) =>
+      ipcRenderer.invoke('reports:missed-patterns', fromDate, toDate, minCount),
   },
   sales: {
     getMonthlyTargets: (filters: { fiscalYearStart: number; year: number }) =>
@@ -97,9 +101,11 @@ contextBridge.exposeInMainWorld('api', {
     save: (data: {
       business_name: string
       business_type: string
+      business_description?: string
       monthly_sales_target?: number | null
       collection_target?: number | null
       primary_activities: string[]
+      departments?: string[]
       team_size: number
       language: string
     }) => ipcRenderer.invoke('business:save', data),
@@ -123,6 +129,22 @@ contextBridge.exposeInMainWorld('api', {
   overlay: {
     openMain: () => ipcRenderer.invoke('overlay:open-main'),
     hide: () => ipcRenderer.invoke('overlay:hide'),
+  },
+  autoEod: {
+    onComplete: (
+      callback: (data: {
+        score: number
+        completed: number
+        missed: number
+        missedTasks: string[]
+        feedback: string
+      }) => void,
+    ) => {
+      ipcRenderer.on('auto-eod-complete', (_event, data) => callback(data))
+    },
+    removeListener: () => {
+      ipcRenderer.removeAllListeners('auto-eod-complete')
+    },
   },
   updater: {
     check: () => ipcRenderer.invoke('updater:check'),

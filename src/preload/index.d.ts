@@ -86,6 +86,8 @@ export interface IElectronAPI {
       }[]
     >
     updateProof: (taskId: string, proof: string) => Promise<{ success: boolean }>
+    replan: (date: string) => Promise<{ success: boolean; reason?: string }>
+    markReplanUsed: (date: string) => Promise<{ success: boolean }>
   }
   reports: {
     week: (endDate: string) => Promise<{
@@ -104,6 +106,8 @@ export interface IElectronAPI {
       tasks_missed: number
     } | null>
     year: (year: string) => Promise<{
+      fy_label: string
+      fy_start: number
       days: {
         date: string
         execution_score: number
@@ -155,6 +159,11 @@ export interface IElectronAPI {
       csv: string
       filename: string
     }>
+    missedPatterns: (
+      fromDate: string,
+      toDate: string,
+      minCount: number,
+    ) => Promise<{ title: string; miss_count: number }[]>
   }
   sales: {
     getMonthlyTargets: (filters: { fiscalYearStart: number; year: number }) => Promise<
@@ -207,18 +216,22 @@ export interface IElectronAPI {
     get: () => Promise<{
       business_name: string
       business_type: string
+      business_description: string
       monthly_sales_target: number | null
       collection_target: number | null
       primary_activities: string[]
+      departments: string[]
       team_size: number
       language: string
     } | null>
     save: (data: {
       business_name: string
       business_type: string
+      business_description?: string
       monthly_sales_target?: number | null
       collection_target?: number | null
       primary_activities: string[]
+      departments?: string[]
       team_size: number
       language: string
     }) => Promise<{ success: boolean }>
@@ -244,6 +257,18 @@ export interface IElectronAPI {
   overlay: {
     openMain: () => Promise<void>
     hide: () => Promise<void>
+  }
+  autoEod: {
+    onComplete: (
+      callback: (data: {
+        score: number
+        completed: number
+        missed: number
+        missedTasks: string[]
+        feedback: string
+      }) => void,
+    ) => void
+    removeListener: () => void
   }
   updater: {
     check: () => Promise<void>

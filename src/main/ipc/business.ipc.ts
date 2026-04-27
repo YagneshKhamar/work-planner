@@ -23,6 +23,7 @@ export function registerBusinessHandlers(): void {
     return {
       business_name: String(row.business_name ?? ''),
       business_type: String(row.business_type ?? 'other'),
+      business_description: String(row.business_description ?? ''),
       monthly_sales_target:
         row.monthly_sales_target === null || row.monthly_sales_target === undefined
           ? null
@@ -32,6 +33,14 @@ export function registerBusinessHandlers(): void {
           ? null
           : Number(row.collection_target),
       primary_activities: primaryActivities,
+      departments: (() => {
+        try {
+          const parsed = JSON.parse(String(row.departments ?? '[]'))
+          return Array.isArray(parsed) ? parsed : []
+        } catch {
+          return []
+        }
+      })(),
       team_size: Number(row.team_size ?? 1),
       language: String(row.language ?? 'en'),
     }
@@ -44,9 +53,11 @@ export function registerBusinessHandlers(): void {
       data: {
         business_name: string
         business_type: string
+        business_description?: string
         monthly_sales_target?: number | null
         collection_target?: number | null
         primary_activities: string[]
+        departments?: string[]
         team_size: number
         language: string
       },
@@ -62,9 +73,11 @@ export function registerBusinessHandlers(): void {
           UPDATE business_profile SET
             business_name = ?,
             business_type = ?,
+            business_description = ?,
             monthly_sales_target = ?,
             collection_target = ?,
             primary_activities = ?,
+            departments = ?,
             team_size = ?,
             language = ?,
             updated_at = datetime('now')
@@ -73,9 +86,11 @@ export function registerBusinessHandlers(): void {
         ).run(
           data.business_name,
           data.business_type,
+          data.business_description ?? '',
           data.monthly_sales_target ?? null,
           data.collection_target ?? null,
           JSON.stringify(data.primary_activities),
+          JSON.stringify(data.departments ?? []),
           data.team_size,
           data.language,
         )
@@ -86,19 +101,23 @@ export function registerBusinessHandlers(): void {
             id,
             business_name,
             business_type,
+            business_description,
             monthly_sales_target,
             collection_target,
             primary_activities,
+            departments,
             team_size,
             language
-          ) VALUES (1, ?, ?, ?, ?, ?, ?, ?)
+          ) VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `,
         ).run(
           data.business_name,
           data.business_type,
+          data.business_description ?? '',
           data.monthly_sales_target ?? null,
           data.collection_target ?? null,
           JSON.stringify(data.primary_activities),
+          JSON.stringify(data.departments ?? []),
           data.team_size,
           data.language,
         )

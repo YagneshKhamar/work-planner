@@ -25,11 +25,27 @@ export default function Overlay(): React.JSX.Element {
   const [proofInputs, setProofInputs] = useState<Record<string, string>>({})
   const [noteInput, setNoteInput] = useState<Record<string, string>>({})
   const [savingNote, setSavingNote] = useState<string | null>(null)
+  const [eodSummary, setEodSummary] = useState<{
+    score: number
+    completed: number
+    missed: number
+    missedTasks: string[]
+    feedback: string
+  } | null>(null)
 
   useEffect(() => {
     loadTasks()
     const interval = setInterval(loadTasks, 60000)
     return () => clearInterval(interval)
+  }, [])
+
+  useEffect(() => {
+    window.api.autoEod.onComplete((data) => {
+      setEodSummary(data)
+    })
+    return () => {
+      window.api.autoEod.removeListener()
+    }
   }, [])
 
   async function loadTasks(): Promise<void> {
@@ -121,6 +137,57 @@ export default function Overlay(): React.JSX.Element {
           </div>
         ) : (
           <div className="no-drag flex-1 overflow-y-auto overlay-scroll px-3 py-2 pb-2">
+            {eodSummary && (
+              <div className="mb-4 p-3 rounded border border-[var(--border-default)] bg-[var(--bg-elevated)]">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-mono text-xs text-[var(--text-muted)] uppercase tracking-wider">
+                    Day Complete
+                  </span>
+                  <span
+                    className="font-mono text-lg font-semibold"
+                    style={{
+                      color:
+                        eodSummary.score >= 0.8
+                          ? 'var(--accent-green)'
+                          : eodSummary.score >= 0.5
+                            ? 'var(--accent-yellow)'
+                            : 'var(--accent-red)',
+                    }}
+                  >
+                    {Math.round(eodSummary.score * 100)}%
+                  </span>
+                </div>
+                <p className="text-xs text-[var(--text-secondary)] mb-2">
+                  {eodSummary.completed} completed · {eodSummary.missed} missed
+                </p>
+                {eodSummary.missedTasks.length > 0 && (
+                  <div className="mb-2">
+                    <p className="text-xs text-[var(--text-muted)] mb-1">Missed:</p>
+                    {eodSummary.missedTasks.slice(0, 3).map((title) => (
+                      <p key={title} className="text-xs text-[var(--accent-red)] truncate">
+                        · {title}
+                      </p>
+                    ))}
+                    {eodSummary.missedTasks.length > 3 && (
+                      <p className="text-xs text-[var(--text-muted)]">
+                        +{eodSummary.missedTasks.length - 3} more
+                      </p>
+                    )}
+                  </div>
+                )}
+                {eodSummary.feedback && (
+                  <p className="text-xs text-[var(--text-secondary)] italic leading-relaxed">
+                    {eodSummary.feedback}
+                  </p>
+                )}
+                <button
+                  onClick={() => setEodSummary(null)}
+                  className="mt-2 text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)] cursor-pointer transition-colors"
+                >
+                  Dismiss
+                </button>
+              </div>
+            )}
             {tasks.map((task) => (
               <div key={task.id}>
                 <div
