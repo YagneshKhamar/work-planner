@@ -359,6 +359,7 @@
     "generateTargetsFailed": "માસિક લક્ષ્યાંક બનાવી શકાયા નહીં.",
     "targetsSalesRequired": "વાર્ષિક વેચાણ લક્ષ્યાંક જરૂરી છે.",
     "exportCsvFailed": "CSV નિકાસ કરી શકાઈ નહીં.",
-    "replanFailed": "આજે ફરીથી આયોજન કરવામાં નિષ્ફળ ગયા."
+    "replanSuccess": "પ્લાન અનલૉક થઈ ગયો. નવા ટાસ્ક જનરેટ કરો.",
+    "replanFailed": "રિપ્લાન નિષ્ફળ. ફરી પ્રયાસ કરો."
   }
 }

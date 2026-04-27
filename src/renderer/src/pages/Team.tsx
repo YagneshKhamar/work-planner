@@ -85,6 +85,7 @@ export default function Team(): React.JSX.Element {
   const weekStart = useMemo(() => getWeekStart(), [])
   const [tab, setTab] = useState<'members' | 'week' | 'followups'>('week')
   const [members, setMembers] = useState<TeamMember[]>([])
+  const [departments, setDepartments] = useState<string[]>([])
   const [weekTasks, setWeekTasks] = useState<TeamTask[]>([])
   const [followups, setFollowups] = useState<Followup[]>([])
   const [overdue, setOverdue] = useState<TeamTask[]>([])
@@ -114,10 +115,12 @@ export default function Team(): React.JSX.Element {
         window.api.team.getFollowups(getToday()),
         window.api.team.getOverdue(),
       ])
+      const profile = await window.api.business.get()
       setMembers(membersData as TeamMember[])
       setWeekTasks(tasksData as TeamTask[])
       setFollowups(followupsData as Followup[])
       setOverdue(overdueData as TeamTask[])
+      setDepartments(profile?.departments ?? [])
     } catch {
       error(t('toast.loadTeamFailed'))
     } finally {
@@ -136,7 +139,10 @@ export default function Team(): React.JSX.Element {
 
   async function handleAddMember(): Promise<void> {
     if (!newMember.name.trim()) return
-    const result = await window.api.team.addMember(newMember)
+    const result = await window.api.team.addMember({
+      ...newMember,
+      role: newMember.role === '__custom__' ? '' : newMember.role,
+    })
     if (result.success) {
       success(t('toast.memberAdded'))
       setShowAddMember(false)
@@ -530,13 +536,26 @@ export default function Team(): React.JSX.Element {
                 onChange={(e) => setNewMember((prev) => ({ ...prev, name: e.target.value }))}
                 className="w-full bg-[var(--bg-base)] border border-[var(--border-default)] rounded px-3 py-2 text-sm text-[var(--text-primary)] outline-none"
               />
-              <input
-                type="text"
-                placeholder="Role"
-                value={newMember.role}
-                onChange={(e) => setNewMember((prev) => ({ ...prev, role: e.target.value }))}
-                className="w-full bg-[var(--bg-base)] border border-[var(--border-default)] rounded px-3 py-2 text-sm text-[var(--text-primary)] outline-none"
-              />
+              {departments.length > 0 ? (
+                <SearchableSelect
+                  value={newMember.role}
+                  onChange={(val) => setNewMember((m) => ({ ...m, role: val }))}
+                  placeholder="Select department / role"
+                  options={[
+                    ...departments.map((d): SelectOption => ({ value: d, label: d })),
+                    { value: '__custom__', label: 'Other (type below)' },
+                  ]}
+                />
+              ) : null}
+              {(departments.length === 0 || newMember.role === '__custom__') && (
+                <input
+                  type="text"
+                  value={newMember.role === '__custom__' ? '' : newMember.role}
+                  onChange={(e) => setNewMember((m) => ({ ...m, role: e.target.value }))}
+                  placeholder="Role"
+                  className="w-full bg-[var(--bg-base)] border border-[var(--border-default)] rounded px-3 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none focus:border-[var(--accent-blue)] transition-colors"
+                />
+              )}
               <input
                 type="email"
                 placeholder="Email"

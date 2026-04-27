@@ -41,10 +41,13 @@ export default function Business({ isSetup = false }: BusinessProps): React.JSX.
   ]
   const [businessName, setBusinessName] = useState('')
   const [businessType, setBusinessType] = useState('')
+  const [businessDescription, setBusinessDescription] = useState('')
   const [otherBusinessType, setOtherBusinessType] = useState('')
   const [monthlySalesTarget, setMonthlySalesTarget] = useState('')
   const [collectionTarget, setCollectionTarget] = useState('')
   const [primaryActivities, setPrimaryActivities] = useState<string[]>([])
+  const [departments, setDepartments] = useState<string[]>([])
+  const [newDepartment, setNewDepartment] = useState('')
   const [teamSize, setTeamSize] = useState('1')
   const [language, setLanguage] = useState('en')
   const [fiscalYearStart, setFiscalYearStart] = useState(4)
@@ -61,32 +64,36 @@ export default function Business({ isSetup = false }: BusinessProps): React.JSX.
   useEffect(() => {
     async function hydrateBusiness(): Promise<void> {
       try {
-        const data = await window.api.business.get()
-        if (data) {
-          setBusinessName(data.business_name ?? '')
-          const loadedBusinessType = data.business_type ?? 'other'
-          if (loadedBusinessType.startsWith('other:')) {
+        const profile = await window.api.business.get()
+        if (profile) {
+          setBusinessName(profile.business_name ?? '')
+          const loadedBusinessType = profile.business_type ?? 'other'
+          const normalizedBusinessType =
+            loadedBusinessType === 'trading' ? 'trading_wholesale' : loadedBusinessType
+          if (normalizedBusinessType.startsWith('other:')) {
             setBusinessType('other')
-            setOtherBusinessType(loadedBusinessType.slice('other:'.length))
+            setOtherBusinessType(normalizedBusinessType.slice('other:'.length))
           } else {
-            setBusinessType(loadedBusinessType)
+            setBusinessType(normalizedBusinessType)
             setOtherBusinessType('')
           }
+          setBusinessDescription(profile.business_description ?? '')
           setMonthlySalesTarget(
-            data.monthly_sales_target === null || data.monthly_sales_target === undefined
+            profile.monthly_sales_target === null || profile.monthly_sales_target === undefined
               ? ''
-              : String(data.monthly_sales_target),
+              : String(profile.monthly_sales_target),
           )
           setCollectionTarget(
-            data.collection_target === null || data.collection_target === undefined
+            profile.collection_target === null || profile.collection_target === undefined
               ? ''
-              : String(data.collection_target),
+              : String(profile.collection_target),
           )
           setPrimaryActivities(
-            Array.isArray(data.primary_activities) ? data.primary_activities : [],
+            Array.isArray(profile.primary_activities) ? profile.primary_activities : [],
           )
-          setTeamSize(String(data.team_size ?? 1))
-          setLanguage(data.language ?? 'en')
+          setDepartments(profile.departments ?? [])
+          setTeamSize(String(profile.team_size ?? 1))
+          setLanguage(profile.language ?? 'en')
         }
 
         const config = (await window.api.config.get()) as { fiscal_year_start?: number } | null
@@ -183,9 +190,11 @@ export default function Business({ isSetup = false }: BusinessProps): React.JSX.
       await window.api.business.save({
         business_name: trimmedName,
         business_type: savedBusinessType,
+        business_description: businessDescription,
         monthly_sales_target: monthlySalesTarget ? Number(monthlySalesTarget) : null,
         collection_target: collectionTarget ? Number(collectionTarget) : null,
         primary_activities: primaryActivities,
+        departments: departments,
         team_size: Number(teamSize) || 1,
         language,
       })
@@ -253,7 +262,8 @@ export default function Business({ isSetup = false }: BusinessProps): React.JSX.
                 { value: '', label: 'Select a business type' },
                 { value: 'textile', label: 'Textile' },
                 { value: 'manufacturing', label: 'Manufacturing' },
-                { value: 'trading', label: 'Trading' },
+                { value: 'trading_wholesale', label: 'Trading — Wholesaler' },
+                { value: 'trading_retail', label: 'Trading — Retailer' },
                 { value: 'retail', label: 'Retail' },
                 { value: 'services', label: 'Services' },
                 { value: 'it', label: 'IT / Software' },
@@ -270,6 +280,21 @@ export default function Business({ isSetup = false }: BusinessProps): React.JSX.
                 className="mt-2 w-full bg-[var(--bg-base)] border border-[var(--border-default)] focus:border-[var(--border-active)] rounded px-3 py-2 text-sm text-[var(--text-primary)] placeholder-[var(--text-muted)] outline-none"
               />
             )}
+          </div>
+          <div>
+            <label className="block text-xs text-[var(--text-muted)] uppercase tracking-wider mb-2">
+              Nature of Business
+            </label>
+            <textarea
+              value={businessDescription}
+              onChange={(e) => setBusinessDescription(e.target.value)}
+              placeholder="Describe what your business does, who your customers are, how you sell — in any language (English, Gujarati, Hindi)"
+              rows={4}
+              className="w-full bg-[var(--bg-base)] border border-[var(--border-default)] rounded px-3 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none focus:border-[var(--accent-blue)] resize-none transition-colors"
+            />
+            <p className="text-xs text-[var(--text-muted)] mt-1">
+              Used by AI to generate more relevant tasks and insights for your business.
+            </p>
           </div>
         </div>
       </section>
@@ -313,6 +338,61 @@ export default function Business({ isSetup = false }: BusinessProps): React.JSX.
                 </label>
               ))}
             </div>
+          </div>
+          <div>
+            <label className="block text-xs text-[var(--text-muted)] uppercase tracking-wider mb-2">
+              Departments
+            </label>
+            <div className="flex flex-wrap gap-2 mb-2">
+              {departments.map((dept) => (
+                <div
+                  key={dept}
+                  className="flex items-center gap-1.5 bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded px-2.5 py-1"
+                >
+                  <span className="text-sm text-[var(--text-primary)]">{dept}</span>
+                  <button
+                    type="button"
+                    onClick={() => setDepartments((d) => d.filter((x) => x !== dept))}
+                    className="text-[var(--text-muted)] hover:text-[var(--accent-red)] transition-colors cursor-pointer"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newDepartment}
+                onChange={(e) => setNewDepartment(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && newDepartment.trim()) {
+                    e.preventDefault()
+                    if (!departments.includes(newDepartment.trim())) {
+                      setDepartments((d) => [...d, newDepartment.trim()])
+                    }
+                    setNewDepartment('')
+                  }
+                }}
+                placeholder="Add department and press Enter"
+                className="flex-1 bg-[var(--bg-base)] border border-[var(--border-default)] rounded px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none focus:border-[var(--accent-blue)] transition-colors"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  if (newDepartment.trim() && !departments.includes(newDepartment.trim())) {
+                    setDepartments((d) => [...d, newDepartment.trim()])
+                  }
+                  setNewDepartment('')
+                }}
+                className="bg-[var(--bg-elevated)] border border-[var(--border-default)] hover:border-[var(--border-active)] text-[var(--text-secondary)] px-3 py-2 rounded text-sm cursor-pointer transition-colors"
+              >
+                Add
+              </button>
+            </div>
+            <p className="text-xs text-[var(--text-muted)] mt-1">
+              e.g. Sales, Production, Accounts, HR
+            </p>
           </div>
           <div>
             <p className="text-xs text-[var(--text-secondary)] mb-1">{t('business.teamSize')}</p>

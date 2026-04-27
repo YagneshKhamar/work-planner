@@ -118,9 +118,11 @@ export function runInitialMigration(db: Database.Database): void {
       id INTEGER PRIMARY KEY DEFAULT 1,
       business_name TEXT NOT NULL DEFAULT '',
       business_type TEXT NOT NULL DEFAULT 'other',
+      business_description TEXT DEFAULT '',
       monthly_sales_target REAL DEFAULT NULL,
       collection_target REAL DEFAULT NULL,
       primary_activities TEXT NOT NULL DEFAULT '[]',
+      departments TEXT DEFAULT '[]',
       team_size INTEGER NOT NULL DEFAULT 1,
       language TEXT NOT NULL DEFAULT 'en',
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -165,4 +167,14 @@ export function runInitialMigration(db: Database.Database): void {
   )
   addColumnIfMissing('api_key_is_encrypted', 'INTEGER NOT NULL DEFAULT 0')
   addColumnIfMissing('fiscal_year_start', 'INTEGER NOT NULL DEFAULT 4')
+  try {
+    db.exec("ALTER TABLE business_profile ADD COLUMN business_description TEXT DEFAULT ''")
+  } catch {
+    // column already exists, ignore
+  }
+  try {
+    db.exec("ALTER TABLE business_profile ADD COLUMN departments TEXT DEFAULT '[]'")
+  } catch {
+    // column already exists, ignore
+  }
 }

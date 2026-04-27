@@ -8,7 +8,6 @@ const EFFORT_WEIGHT: Record<string, number> = { light: 1, medium: 2, heavy: 3 }
 
 export async function runEndOfDay(date: string, skipAiFeedback = false): Promise<void> {
   const db = getDatabase()
-  const EFFORT_WEIGHT: Record<string, number> = { light: 1, medium: 2, heavy: 3 }
 
   type TaskRow = {
     id: string
@@ -21,7 +20,9 @@ export async function runEndOfDay(date: string, skipAiFeedback = false): Promise
   }
 
   const allTasks = db
-    .prepare(`SELECT * FROM tasks WHERE scheduled_date = ? AND status NOT IN ('dropped', 'carried')`)
+    .prepare(
+      `SELECT * FROM tasks WHERE scheduled_date = ? AND status NOT IN ('dropped', 'carried')`,
+    )
     .all(date) as TaskRow[]
 
   const pendingTasks = allTasks.filter((t) => t.status === 'pending')
@@ -61,20 +62,41 @@ export async function runEndOfDay(date: string, skipAiFeedback = false): Promise
 
   const existing = db.prepare(`SELECT id FROM day_logs WHERE date = ?`).get(date)
   if (!existing) {
-    db.prepare(`
+    db.prepare(
+      `
       INSERT INTO day_logs
         (id, date, total_weight, completed_weight, execution_score, ai_feedback,
          tasks_completed, tasks_missed, tasks_carried, tasks_dropped)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0)
-    `).run(uuidv4(), date, totalWeight, completedWeight, score, feedback, completedTasks.length, pendingTasks.length)
+    `,
+    ).run(
+      uuidv4(),
+      date,
+      totalWeight,
+      completedWeight,
+      score,
+      feedback,
+      completedTasks.length,
+      pendingTasks.length,
+    )
   } else {
-    db.prepare(`
+    db.prepare(
+      `
       UPDATE day_logs SET
         total_weight = ?, completed_weight = ?, execution_score = ?,
         ai_feedback = CASE WHEN ai_feedback = '' OR ai_feedback IS NULL THEN ? ELSE ai_feedback END,
         tasks_completed = ?, tasks_missed = ?
       WHERE date = ?
-    `).run(totalWeight, completedWeight, score, feedback, completedTasks.length, pendingTasks.length, date)
+    `,
+    ).run(
+      totalWeight,
+      completedWeight,
+      score,
+      feedback,
+      completedTasks.length,
+      pendingTasks.length,
+      date,
+    )
   }
 
   detectBehaviorPatterns(date)
@@ -134,6 +156,19 @@ export function registerTasksHandlers(): void {
       }[],
     ) => {
       const db = getDatabase()
+
+      // Delete existing pending tasks for the dates being saved — prevent duplicates on regenerate
+      const dates = [
+        ...new Set((tasks as { scheduled_date: string }[]).map((t) => t.scheduled_date)),
+      ]
+      const deletePending = db.prepare(
+        `DELETE FROM tasks WHERE scheduled_date = ? AND status = 'pending'`,
+      )
+      db.transaction(() => {
+        for (const date of dates) {
+          deletePending.run(date)
+        }
+      })()
 
       const insert = db.prepare(`
       INSERT INTO tasks (
@@ -352,9 +387,14 @@ export function registerTasksHandlers(): void {
   ipcMain.handle('tasks:end-of-day', async (_event, date: string) => {
     const db = getDatabase()
     await runEndOfDay(date, false)
-    const result = db.prepare(`SELECT * FROM day_logs WHERE date = ?`).get(date) as Record<string, unknown>
+    const result = db.prepare(`SELECT * FROM day_logs WHERE date = ?`).get(date) as Record<
+      string,
+      unknown
+    >
     const allTasks = db
-      .prepare(`SELECT * FROM tasks WHERE scheduled_date = ? AND status NOT IN ('dropped', 'carried')`)
+      .prepare(
+        `SELECT * FROM tasks WHERE scheduled_date = ? AND status NOT IN ('dropped', 'carried')`,
+      )
       .all(date) as Record<string, unknown>[]
     return {
       score: result?.execution_score ?? 0,
@@ -432,6 +472,37 @@ export function registerTasksHandlers(): void {
       VALUES (?, ?, ?, 'proof_updated', (SELECT proof_type FROM tasks WHERE id = ?), ?, 0)
     `,
     ).run(uuidv4(), taskId, today, taskId, proof)
+
+    return { success: true }
+  })
+
+  ipcMain.handle('tasks:replan', (_event, date: string) => {
+    const db = getDatabase()
+
+    // Only allow if plan exists, is locked, and replan not yet used
+    const plan = db.prepare('SELECT * FROM day_plans WHERE date = ?').get(date) as
+      | Record<string, unknown>
+      | undefined
+    if (!plan) return { success: false, reason: 'No plan found for today' }
+    if (!plan.locked) return { success: false, reason: 'Plan is not locked yet' }
+    if (plan.replan_used) return { success: false, reason: 'Replan already used today' }
+
+    // Delete only pending tasks for today — keep completed, carried, dropped
+    db.prepare(
+      `
+    DELETE FROM tasks
+    WHERE scheduled_date = ? AND status = 'pending'
+  `,
+    ).run(date)
+
+    // Unlock the plan and mark replan used
+    db.prepare(
+      `
+    UPDATE day_plans
+    SET locked = 0, replan_used = 1
+    WHERE date = ?
+  `,
+    ).run(date)
 
     return { success: true }
   })

@@ -86,6 +86,7 @@ export interface IElectronAPI {
       }[]
     >
     updateProof: (taskId: string, proof: string) => Promise<{ success: boolean }>
+    replan: (date: string) => Promise<{ success: boolean; reason?: string }>
     markReplanUsed: (date: string) => Promise<{ success: boolean }>
   }
   reports: {
@@ -215,18 +216,22 @@ export interface IElectronAPI {
     get: () => Promise<{
       business_name: string
       business_type: string
+      business_description: string
       monthly_sales_target: number | null
       collection_target: number | null
       primary_activities: string[]
+      departments: string[]
       team_size: number
       language: string
     } | null>
     save: (data: {
       business_name: string
       business_type: string
+      business_description?: string
       monthly_sales_target?: number | null
       collection_target?: number | null
       primary_activities: string[]
+      departments?: string[]
       team_size: number
       language: string
     }) => Promise<{ success: boolean }>

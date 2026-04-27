@@ -59,16 +59,14 @@ export default function SearchableSelect({
     if (open && searchable) {
       setTimeout(() => searchRef.current?.focus(), 50)
     }
-    if (!open) {
-      setQuery('')
-      setActiveIndex(-1)
-    }
   }, [open, searchable])
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent): void {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setOpen(false)
+        setQuery('')
+        setActiveIndex(-1)
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
@@ -94,9 +92,13 @@ export default function SearchableSelect({
       if (activeIndex >= 0 && filtered[activeIndex]) {
         onChange(filtered[activeIndex].value)
         setOpen(false)
+        setQuery('')
+        setActiveIndex(-1)
       }
     } else if (e.key === 'Escape') {
       setOpen(false)
+      setQuery('')
+      setActiveIndex(-1)
     }
   }
 
@@ -189,6 +191,8 @@ export default function SearchableSelect({
                   onClick={() => {
                     onChange(option.value)
                     setOpen(false)
+                    setQuery('')
+                    setActiveIndex(-1)
                   }}
                   className={`w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left transition-colors cursor-pointer
                     ${i === activeIndex ? 'bg-[var(--bg-hover)]' : 'hover:bg-[var(--bg-hover)]'}

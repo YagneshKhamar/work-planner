@@ -131,9 +131,13 @@ export default function Today(): React.JSX.Element {
   async function handleReplan(): Promise<void> {
     if (!dayPlan || dayPlan.replan_used === 1) return
     try {
-      // Delete today's non-carried, non-completed tasks and unlock the plan
-      await window.api.tasks.markReplanUsed(getToday())
+      const result = await window.api.tasks.replan(getToday())
+      if (!result.success) {
+        error(result.reason ?? t('toast.replanFailed'))
+        return
+      }
       await loadTodayData()
+      success(t('toast.replanSuccess'))
     } catch {
       error(t('toast.replanFailed'))
     }
