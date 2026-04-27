@@ -27,17 +27,55 @@ function AutoEodHandler(): React.JSX.Element | null {
   return null
 }
 
+function TitleBar(): React.JSX.Element {
+  return (
+    <div
+      className="drag-region flex items-center gap-2 h-10 px-4 shrink-0 bg-[var(--bg-base)]"
+      style={
+        {
+          WebkitAppRegion: 'drag',
+          boxShadow: '0 1px 0 var(--border-subtle)',
+        } as React.CSSProperties
+      }
+    >
+      <img
+        src="icon.png"
+        style={{ width: 20, height: 20, opacity: 0.9 }}
+        alt=""
+        onError={(e) => {
+          e.currentTarget.style.display = 'none'
+        }}
+      />
+      <span
+        style={{
+          fontFamily: 'IBM Plex Mono, monospace',
+          fontSize: 11,
+          fontWeight: 600,
+          letterSpacing: '0.12em',
+          color: 'var(--text-secondary)',
+          userSelect: 'none',
+        }}
+      >
+        EXECD
+      </span>
+    </div>
+  )
+}
+
 function AppLayout({ children }: { children: React.ReactNode }): React.JSX.Element {
   const location = useLocation()
   const hideSidebar = location.pathname === '/setup' || location.pathname === '/business/setup'
 
   return (
-    <div className="h-screen w-screen flex bg-[var(--bg-base)] overflow-hidden">
-      {!hideSidebar && <Sidebar />}
-      <main className="flex-1 overflow-hidden">
-        <AutoEodHandler />
-        {children}
-      </main>
+    <div className="h-screen w-screen flex flex-col bg-[var(--bg-base)] overflow-hidden">
+      <TitleBar />
+      <div className="flex flex-1 overflow-hidden min-h-0">
+        {!hideSidebar && <Sidebar />}
+        <main className="flex-1 overflow-hidden min-h-0">
+          <AutoEodHandler />
+          {children}
+        </main>
+      </div>
       <UpdateNotifier />
     </div>
   )

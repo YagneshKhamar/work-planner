@@ -39,6 +39,13 @@ function createMainWindow(): BrowserWindow {
     show: false,
     autoHideMenuBar: true,
     icon: getAppIconPath(),
+    frame: false,
+    titleBarStyle: 'hidden',
+    titleBarOverlay: {
+      color: '#0a0a0a',
+      symbolColor: '#666666',
+      height: 40,
+    },
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
