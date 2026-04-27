@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import Sidebar from './components/Sidebar'
 import Setup from './pages/Setup'
 import Goals from './pages/Goals'
@@ -12,6 +12,21 @@ import Analytics from './pages/Analytics'
 import Team from './pages/Team'
 import UpdateNotifier from './components/UpdateNotifier'
 
+function AutoEodHandler(): React.JSX.Element | null {
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    window.api.autoEod.onComplete(() => {
+      navigate('/today')
+    })
+    return () => {
+      window.api.autoEod.removeListener()
+    }
+  }, [navigate])
+
+  return null
+}
+
 function AppLayout({ children }: { children: React.ReactNode }): React.JSX.Element {
   const location = useLocation()
   const hideSidebar = location.pathname === '/setup' || location.pathname === '/business/setup'
@@ -19,7 +34,10 @@ function AppLayout({ children }: { children: React.ReactNode }): React.JSX.Eleme
   return (
     <div className="h-screen w-screen flex bg-[var(--bg-base)] overflow-hidden">
       {!hideSidebar && <Sidebar />}
-      <main className="flex-1 overflow-hidden">{children}</main>
+      <main className="flex-1 overflow-hidden">
+        <AutoEodHandler />
+        {children}
+      </main>
       <UpdateNotifier />
     </div>
   )

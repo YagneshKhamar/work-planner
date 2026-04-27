@@ -22,16 +22,13 @@ function getBusinessContext(): string {
     const activities = (() => {
       try {
         return JSON.parse(String(profile.primary_activities || '[]')) as string[]
-      } catch {
-        return [] as string[]
-      }
+      } catch { return [] as string[] }
     })()
+
     const departments = (() => {
       try {
         return JSON.parse(String(profile.departments || '[]')) as string[]
-      } catch {
-        return [] as string[]
-      }
+      } catch { return [] as string[] }
     })()
 
     const businessType = String(profile.business_type || '').startsWith('other:')
@@ -40,11 +37,11 @@ function getBusinessContext(): string {
 
     const parts = [
       profile.business_name ? `Business: ${String(profile.business_name)}` : '',
-      businessType ? `Type: ${businessType}` : '',
-      profile.business_description ? `Business description: ${String(profile.business_description)}` : '',
+      businessType ? `Industry: ${businessType}` : '',
       `Team size: ${String(profile.team_size || 1)}`,
-      activities.length > 0 ? `Primary activities: ${activities.join(', ')}` : '',
       departments.length > 0 ? `Departments: ${departments.join(', ')}` : '',
+      activities.length > 0 ? `Primary activities: ${activities.join(', ')}` : '',
+      profile.business_description ? `About the business: ${String(profile.business_description)}` : '',
       profile.monthly_sales_target
         ? `Yearly sales target: ₹${String(profile.monthly_sales_target)}`
         : '',

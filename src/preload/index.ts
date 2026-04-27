@@ -130,6 +130,22 @@ contextBridge.exposeInMainWorld('api', {
     openMain: () => ipcRenderer.invoke('overlay:open-main'),
     hide: () => ipcRenderer.invoke('overlay:hide'),
   },
+  autoEod: {
+    onComplete: (
+      callback: (data: {
+        score: number
+        completed: number
+        missed: number
+        missedTasks: string[]
+        feedback: string
+      }) => void,
+    ) => {
+      ipcRenderer.on('auto-eod-complete', (_event, data) => callback(data))
+    },
+    removeListener: () => {
+      ipcRenderer.removeAllListeners('auto-eod-complete')
+    },
+  },
   updater: {
     check: () => ipcRenderer.invoke('updater:check'),
     download: () => ipcRenderer.invoke('updater:download'),

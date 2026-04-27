@@ -188,6 +188,14 @@ export default function Today(): React.JSX.Element {
       const todayTasks = (await window.api.tasks.getByDate(getToday())) as Task[]
       setDayPlan(plan)
       setTasks(todayTasks)
+      const dayLog = await window.api.reports.dayLog(getToday())
+      if (dayLog && dayLog.execution_score !== undefined) {
+        setDayEnded(true)
+        setEndDayResult({
+          score: Number(dayLog.execution_score),
+          feedback: String(dayLog.ai_feedback ?? ''),
+        })
+      }
       const initialNotes: Record<string, string> = {}
       todayTasks.forEach((t) => {
         initialNotes[t.id] = t.notes || ''
@@ -454,9 +462,7 @@ export default function Today(): React.JSX.Element {
   async function handleEndDay(): Promise<void> {
     setEndingDay(true)
     try {
-      const result = await window.api.tasks.endOfDay(getToday())
-      setEndDayResult({ score: result.score, feedback: result.feedback })
-      setDayEnded(true)
+      await window.api.tasks.endOfDay(getToday())
       await loadTodayData()
       success(t('toast.dayComplete'))
       // Auto-generate tomorrow in background
@@ -543,6 +549,7 @@ export default function Today(): React.JSX.Element {
   const totalCount = tasks.length
   const score = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0
   const isLocked = dayPlan?.locked === 1
+  const isReadOnly = dayEnded
   const carriedCount = tasks.reduce((sum, task) => sum + task.carry_count, 0)
   const salesProgress =
     monthSummary && monthSummary.sales_target > 0
@@ -919,6 +926,26 @@ export default function Today(): React.JSX.Element {
           </div>
         )}
 
+        {dayEnded && endDayResult && (
+          <div className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] border-l-2 border-[var(--accent-blue)] rounded-xl p-5 space-y-3 mb-6">
+            <div className="flex items-center justify-between">
+              <span className="text-[var(--text-secondary)] text-xs">Execution score</span>
+              <span className="text-[var(--text-primary)] font-bold text-sm">
+                {Math.round(endDayResult.score * 100)}%
+              </span>
+            </div>
+            <p className="text-[var(--text-secondary)] text-xs leading-relaxed">
+              {endDayResult.feedback}
+            </p>
+            <button
+              onClick={() => navigate('/report/daily')}
+              className="text-[var(--accent-blue)] hover:text-[var(--accent-blue-dim)] text-xs cursor-pointer transition-colors"
+            >
+              View full report →
+            </button>
+          </div>
+        )}
+
         {/* No tasks state */}
         {tasks.length === 0 && (
           <div className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-xl p-8 text-center mb-6">
@@ -958,16 +985,23 @@ export default function Today(): React.JSX.Element {
                 >
                   <div className="flex items-start gap-3">
                     <button
-                      onClick={() => handleComplete(task)}
-                      disabled={completingId === task.id || !isLocked}
+                      onClick={() => {
+                        if (isReadOnly) return
+                        handleComplete(task)
+                      }}
+                      disabled={completingId === task.id || !isLocked || isReadOnly}
                       title={
-                        !isLocked ? 'Lock your plan first to start completing tasks' : undefined
+                        !isLocked
+                          ? 'Lock your plan first to start completing tasks'
+                          : isReadOnly
+                            ? 'Day has ended. Tasks are read-only.'
+                            : undefined
                       }
                       className={`mt-0.5 w-4 h-4 rounded-sm border border-[var(--border-default)] flex items-center justify-center shrink-0 transition-colors ${
                         task.status === 'completed'
                           ? 'bg-[var(--accent-green)] text-white'
                           : 'bg-transparent'
-                      } ${!isLocked ? 'cursor-not-allowed opacity-40' : 'cursor-pointer'} ${
+                      } ${!isLocked || isReadOnly ? 'cursor-not-allowed opacity-40' : 'cursor-pointer'} ${
                         completingId === task.id ? 'cursor-not-allowed opacity-40' : ''
                       }`}
                     >
@@ -981,8 +1015,10 @@ export default function Today(): React.JSX.Element {
                         <p
                           className={`flex-1 text-sm ${
                             task.status === 'completed'
-                              ? 'text-[var(--text-secondary)] line-through'
-                              : 'text-[var(--text-primary)]'
+                              ? 'text-[var(--accent-green)] line-through'
+                              : task.status === 'missed'
+                                ? 'text-[var(--accent-red)]'
+                                : 'text-[var(--text-primary)]'
                           }`}
                         >
                           {task.title}
@@ -1208,26 +1244,6 @@ export default function Today(): React.JSX.Element {
                 </div>
               )}
           </div>
-
-          {dayEnded && endDayResult && (
-            <div className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] border-l-2 border-[var(--accent-blue)] rounded-xl p-5 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-[var(--text-secondary)] text-xs">Execution score</span>
-                <span className="text-[var(--text-primary)] font-bold text-sm">
-                  {Math.round(endDayResult.score * 100)}%
-                </span>
-              </div>
-              <p className="text-[var(--text-secondary)] text-xs leading-relaxed">
-                {endDayResult.feedback}
-              </p>
-              <button
-                onClick={() => navigate('/report/daily')}
-                className="text-[var(--accent-blue)] hover:text-[var(--accent-blue-dim)] text-xs cursor-pointer transition-colors"
-              >
-                View full report →
-              </button>
-            </div>
-          )}
 
           {isLocked && !dayEnded && tasks.every((t) => t.status === 'completed') && (
             <div className="bg-[var(--accent-green)]/5 border border-[var(--accent-green)]/20 rounded-xl px-4 py-3 flex items-center gap-2 text-[var(--accent-green)] text-sm">

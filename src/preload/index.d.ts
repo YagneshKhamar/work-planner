@@ -258,6 +258,18 @@ export interface IElectronAPI {
     openMain: () => Promise<void>
     hide: () => Promise<void>
   }
+  autoEod: {
+    onComplete: (
+      callback: (data: {
+        score: number
+        completed: number
+        missed: number
+        missedTasks: string[]
+        feedback: string
+      }) => void,
+    ) => void
+    removeListener: () => void
+  }
   updater: {
     check: () => Promise<void>
     download: () => Promise<void>

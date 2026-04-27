@@ -228,14 +228,18 @@ async function backfillMissingDayLogs(): Promise<void> {
     const db = getDatabase()
     const today = new Date().toISOString().slice(0, 10)
 
-    const dates = db.prepare(`
+    const dates = db
+      .prepare(
+        `
       SELECT DISTINCT scheduled_date as date
       FROM tasks
       WHERE scheduled_date < ?
         AND scheduled_date NOT IN (SELECT date FROM day_logs)
         AND status NOT IN ('dropped', 'carried')
       ORDER BY scheduled_date ASC
-    `).all(today) as { date: string }[]
+    `,
+      )
+      .all(today) as { date: string }[]
 
     if (dates.length === 0) return
 
@@ -253,6 +257,115 @@ async function backfillMissingDayLogs(): Promise<void> {
     console.log(`[startup] Backfill complete`)
   } catch (err) {
     console.error('[startup] Backfill error:', err)
+  }
+}
+
+let autoEndOfDayFired = false
+
+async function checkAutoEndOfDay(): Promise<void> {
+  try {
+    const db = getDatabase()
+    const today = new Date().toISOString().slice(0, 10)
+
+    // Reset the fired flag at midnight
+    const now = new Date()
+    const hours = now.getHours()
+    const minutes = now.getMinutes()
+    if (hours === 0 && minutes === 0) {
+      autoEndOfDayFired = false
+      return
+    }
+
+    if (autoEndOfDayFired) return
+
+    // Get working_end from config
+    const config = db.prepare('SELECT working_end, working_days FROM config WHERE id = 1').get() as
+      | { working_end: string; working_days: string }
+      | undefined
+    if (!config?.working_end) return
+
+    // Check if today is a working day
+    const workingDays = (() => {
+      try {
+        return JSON.parse(config.working_days) as string[]
+      } catch {
+        return [] as string[]
+      }
+    })()
+    const dayNames = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
+    const todayName = dayNames[now.getDay()]
+    if (
+      workingDays.length > 0 &&
+      !workingDays.map((d) => d.toLowerCase().slice(0, 3)).includes(todayName)
+    )
+      return
+
+    // Parse working_end time (format: "HH:MM")
+    const [endHour, endMinute] = config.working_end.split(':').map(Number)
+    if (isNaN(endHour) || isNaN(endMinute)) return
+
+    // Check if current time has passed working_end
+    const currentMinutes = hours * 60 + minutes
+    const endMinutes = endHour * 60 + endMinute
+    if (currentMinutes < endMinutes) return
+
+    // Check if today already has a day_log
+    const existing = db.prepare('SELECT id FROM day_logs WHERE date = ?').get(today)
+    if (existing) {
+      autoEndOfDayFired = true
+      return
+    }
+
+    // Check if today has any tasks
+    const taskCount = db
+      .prepare(
+        `SELECT COUNT(*) as count FROM tasks WHERE scheduled_date = ? AND status NOT IN ('dropped', 'carried')`,
+      )
+      .get(today) as { count: number }
+    if (taskCount.count === 0) {
+      autoEndOfDayFired = true
+      return
+    }
+
+    console.log('[auto-eod] Working hours ended, running end-of-day automatically...')
+    autoEndOfDayFired = true
+
+    await runEndOfDay(today, false)
+
+    // Get result to send to overlay
+    const result = db.prepare('SELECT * FROM day_logs WHERE date = ?').get(today) as Record<
+      string,
+      unknown
+    >
+    const missedTasks = db
+      .prepare(`SELECT title FROM tasks WHERE scheduled_date = ? AND status = 'missed'`)
+      .all(today) as { title: string }[]
+
+    // Notify overlay and main window
+    if (overlayWindow && !overlayWindow.isDestroyed()) {
+      overlayWindow.webContents.send('auto-eod-complete', {
+        score: result?.execution_score ?? 0,
+        completed: result?.tasks_completed ?? 0,
+        missed: result?.tasks_missed ?? 0,
+        missedTasks: missedTasks.map((t) => t.title),
+        feedback: result?.ai_feedback ?? '',
+      })
+      overlayWindow.show()
+    }
+
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('auto-eod-complete', {
+        score: result?.execution_score ?? 0,
+        completed: result?.tasks_completed ?? 0,
+        missed: result?.tasks_missed ?? 0,
+        missedTasks: missedTasks.map((t) => t.title),
+        feedback: result?.ai_feedback ?? '',
+      })
+    }
+
+    console.log('[auto-eod] Done.')
+  } catch (err) {
+    console.error('[auto-eod] Error:', err)
   }
 }
 
@@ -317,6 +430,17 @@ app.whenReady().then(async () => {
   overlayWindow = createOverlayWindow()
 
   await backfillMissingDayLogs()
+
+  // Check every 1 hour for auto end-of-day
+  setInterval(
+    () => {
+      checkAutoEndOfDay().catch(console.error)
+    },
+    60 * 60 * 1000,
+  )
+
+  // Also check immediately on startup in case app opened after working hours
+  checkAutoEndOfDay().catch(console.error)
 
   autoUpdater.on('checking-for-update', () => {
     mainWindow?.webContents.send('updater:status', {
