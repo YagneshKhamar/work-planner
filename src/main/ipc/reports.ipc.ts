@@ -123,7 +123,7 @@ export function registerReportsHandlers(): void {
          ORDER BY date ASC`,
       )
       .all(endDate, endDate)
-    console.log('days', days)
+
     const patterns = db
       .prepare(
         `SELECT t.title, COUNT(*) as miss_count
@@ -137,8 +137,6 @@ export function registerReportsHandlers(): void {
          ORDER BY miss_count DESC`,
       )
       .all(endDate, endDate)
-
-    console.log('patterns', patterns)
 
     return { days, patterns }
   })

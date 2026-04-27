@@ -2,6 +2,7 @@ import { Fragment, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CheckCircle, FileText, Users } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import SearchableSelect, { type SelectOption } from '../components/SearchableSelect'
 import { useToast } from '../components/Toast'
 import i18n from '../i18n/index'
 
@@ -657,18 +658,25 @@ export default function Today(): React.JSX.Element {
                 </div>
                 <div>
                   <p className="text-xs text-[var(--text-secondary)] mb-1">Subgoal</p>
-                  <select
+                  <SearchableSelect
+                    searchable
+                    placeholder="Select subgoal"
                     value={selectedSubgoalId}
-                    onChange={(e) => setSelectedSubgoalId(e.target.value)}
-                    className="w-full bg-[var(--bg-base)] border border-[var(--border-default)] focus:border-[var(--border-active)] rounded px-3 py-2 text-sm text-[var(--text-primary)] outline-none"
-                  >
-                    <option value="">{t('dashboard.selectSubgoal')}</option>
-                    {subgoalOptions.map((subgoal) => (
-                      <option key={subgoal.id} value={subgoal.id}>
-                        [{subgoal.goalType}] — {subgoal.title}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(val) => setSelectedSubgoalId(val)}
+                    options={subgoalOptions.map(
+                      (sub): SelectOption => ({
+                        value: sub.id,
+                        label: sub.title,
+                        tag: sub.goalType,
+                        tagColor:
+                          sub.goalType === 'business'
+                            ? 'blue'
+                            : sub.goalType === 'personal'
+                              ? 'green'
+                              : 'yellow',
+                      }),
+                    )}
+                  />
                 </div>
                 <div className="flex gap-2 mt-5">
                   <button

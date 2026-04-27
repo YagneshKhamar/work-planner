@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, CheckCircle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router-dom'
+import SearchableSelect, { type SelectOption } from '../components/SearchableSelect'
 import { useToast } from '../components/Toast'
 
 interface TeamMember {
@@ -570,18 +571,18 @@ export default function Team(): React.JSX.Element {
               {t('team.assignTaskTitle')}
             </h3>
             <div className="space-y-2">
-              <select
+              <SearchableSelect
+                searchable
+                placeholder="Select member"
                 value={newTask.member_id}
-                onChange={(e) => setNewTask((prev) => ({ ...prev, member_id: e.target.value }))}
-                className="w-full bg-[var(--bg-base)] border border-[var(--border-default)] rounded px-3 py-2 text-sm text-[var(--text-primary)] outline-none"
-              >
-                <option value="">{t('team.selectMember')}</option>
-                {members.map((member) => (
-                  <option key={member.id} value={member.id}>
-                    {member.name}
-                  </option>
-                ))}
-              </select>
+                onChange={(val) => setNewTask((prev) => ({ ...prev, member_id: val }))}
+                options={members.map((m): SelectOption => ({
+                  value: m.id,
+                  label: m.name,
+                  tag: m.role,
+                  tagColor: 'blue',
+                }))}
+              />
               <input
                 type="text"
                 placeholder={t('team.taskTitle')}

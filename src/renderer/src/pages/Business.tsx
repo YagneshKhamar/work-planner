@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import SearchableSelect, { type SelectOption } from '../components/SearchableSelect'
 import { useToast } from '../components/Toast'
 import i18n from '../i18n/index'
 
@@ -38,20 +39,6 @@ export default function Business({ isSetup = false }: BusinessProps): React.JSX.
     { id: 'collection_calls', label: t('business.activities.collection_calls') },
     { id: 'exhibitions', label: t('business.activities.exhibitions') },
   ]
-  const BUSINESS_TYPES = [
-    { value: 'textile', label: t('business.types.textile') },
-    { value: 'manufacturing', label: t('business.types.manufacturing') },
-    { value: 'trading', label: t('business.types.trading') },
-    { value: 'retail', label: t('business.types.retail') },
-    { value: 'services', label: t('business.types.services') },
-    { value: 'other', label: t('business.types.other') },
-  ]
-  const LANGUAGES = [
-    { value: 'en', label: t('business.languages.en') },
-    { value: 'gu', label: t('business.languages.gu') },
-    { value: 'hi', label: t('business.languages.hi') },
-  ]
-
   const [businessName, setBusinessName] = useState('')
   const [businessType, setBusinessType] = useState('')
   const [otherBusinessType, setOtherBusinessType] = useState('')
@@ -259,18 +246,21 @@ export default function Business({ isSetup = false }: BusinessProps): React.JSX.
             <p className="text-xs text-[var(--text-secondary)] mb-1">
               {t('business.businessType')}
             </p>
-            <select
+            <SearchableSelect
               value={businessType}
-              onChange={(e) => setBusinessType(e.target.value)}
-              className={`${inputClass} cursor-pointer`}
-            >
-              <option value="">Select a business type</option>
-              {BUSINESS_TYPES.map((type) => (
-                <option key={type.value} value={type.value}>
-                  {type.label}
-                </option>
-              ))}
-            </select>
+              onChange={(val) => setBusinessType(val)}
+              options={[
+                { value: '', label: 'Select a business type' },
+                { value: 'textile', label: 'Textile' },
+                { value: 'manufacturing', label: 'Manufacturing' },
+                { value: 'trading', label: 'Trading' },
+                { value: 'retail', label: 'Retail' },
+                { value: 'services', label: 'Services' },
+                { value: 'it', label: 'IT / Software' },
+                { value: 'ca', label: 'CA / Accounting' },
+                { value: 'other', label: 'Other' },
+              ].map((option): SelectOption => option)}
+            />
             {businessType === 'other' && (
               <input
                 type="text"
@@ -288,17 +278,15 @@ export default function Business({ isSetup = false }: BusinessProps): React.JSX.
         <label className={sectionLabelClass}>{t('business.preferencesSection')}</label>
         <div>
           <p className="text-xs text-[var(--text-secondary)] mb-1">{t('business.appLanguage')}</p>
-          <select
+          <SearchableSelect
             value={language}
-            onChange={(e) => setLanguage(e.target.value)}
-            className={`${inputClass} cursor-pointer`}
-          >
-            {LANGUAGES.map((item) => (
-              <option key={item.value} value={item.value}>
-                {item.label}
-              </option>
-            ))}
-          </select>
+            onChange={(val) => setLanguage(val)}
+            options={[
+              { value: 'en', label: 'English' },
+              { value: 'gu', label: 'ગુજરાતી' },
+              { value: 'hi', label: 'हिंदी' },
+            ].map((option): SelectOption => option)}
+          />
         </div>
       </section>
 

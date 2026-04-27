@@ -16,7 +16,6 @@ export default function UpdateNotifier(): React.JSX.Element | null {
 
   useEffect(() => {
     window.api.updater.onStatus((data) => {
-      console.log('updater status:', JSON.stringify(data))
       setUpdate(data as UpdateStatus)
       setDismissed(false)
     })
