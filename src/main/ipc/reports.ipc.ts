@@ -117,13 +117,13 @@ export function registerReportsHandlers(): void {
 
     const days = db
       .prepare(
-        `SELECT date, execution_score, tasks_completed, tasks_missed
+        `SELECT date, execution_score, tasks_completed, tasks_missed, tasks_carried
          FROM day_logs
          WHERE date <= ? AND date >= date(?, '-6 days')
          ORDER BY date ASC`,
       )
       .all(endDate, endDate)
-
+    console.log('days', days)
     const patterns = db
       .prepare(
         `SELECT t.title, COUNT(*) as miss_count
@@ -137,6 +137,8 @@ export function registerReportsHandlers(): void {
          ORDER BY miss_count DESC`,
       )
       .all(endDate, endDate)
+
+    console.log('patterns', patterns)
 
     return { days, patterns }
   })
@@ -163,7 +165,7 @@ export function registerReportsHandlers(): void {
     const days = db
       .prepare(
         `
-    SELECT date, execution_score, tasks_completed, tasks_missed, tasks_carried
+    SELECT date, execution_score, tasks_completed, tasks_missed, tasks_carried, tasks_carried
     FROM day_logs
     WHERE date >= ? AND date <= ?
     ORDER BY date ASC
@@ -204,7 +206,7 @@ export function registerReportsHandlers(): void {
       )
       .all(startDate, endDate)
 
-    return { days, months, topMissed, fy_label: fyLabel }
+    return { days, months, topMissed, fy_label: fyLabel, fy_start: fyStart }
   })
 
   ipcMain.handle('reports:analytics', (_event, days: number) => {
@@ -218,7 +220,7 @@ export function registerReportsHandlers(): void {
     const trend = db
       .prepare(
         `
-    SELECT date, execution_score, tasks_completed, tasks_missed
+    SELECT date, execution_score, tasks_completed, tasks_missed, tasks_carried
     FROM day_logs
     WHERE date >= ?
     ORDER BY date ASC
@@ -397,4 +399,26 @@ export function registerReportsHandlers(): void {
       filename: `execd-summary-${today}.csv`,
     }
   })
+
+  ipcMain.handle(
+    'reports:missed-patterns',
+    (_event, fromDate: string, toDate: string, minCount: number) => {
+      const db = getDatabase()
+      return db
+        .prepare(
+          `
+    SELECT t.title, COUNT(*) as miss_count
+    FROM task_logs tl
+    JOIN tasks t ON t.id = tl.task_id
+    WHERE tl.action = 'missed'
+      AND tl.date >= ? AND tl.date <= ?
+    GROUP BY t.title
+    HAVING COUNT(*) >= ?
+    ORDER BY miss_count DESC
+    LIMIT 10
+  `,
+        )
+        .all(fromDate, toDate, minCount)
+    },
+  )
 }

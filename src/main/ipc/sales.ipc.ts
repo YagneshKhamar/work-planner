@@ -108,9 +108,13 @@ export function registerSalesHandlers(): void {
       const db = getDatabase()
       db.prepare(
         `
-        INSERT OR REPLACE INTO daily_sales (date, sales_amount, collection_amount, notes)
-        VALUES (?, ?, ?, ?)
-      `,
+  INSERT INTO daily_sales (date, sales_amount, collection_amount, notes)
+  VALUES (?, ?, ?, ?)
+  ON CONFLICT(date) DO UPDATE SET
+    sales_amount = excluded.sales_amount,
+    collection_amount = excluded.collection_amount,
+    notes = excluded.notes
+`,
       ).run(
         entry.date,
         Number(entry.sales_amount ?? 0),

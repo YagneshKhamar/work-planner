@@ -75,9 +75,6 @@ async function callAI(prompt: string, systemPrompt: string): Promise<string> {
   const provider = AI_PROVIDER
   const encryptedApiKey = config.api_key_encrypted as string | undefined
   const isEncrypted = Number(config.api_key_is_encrypted ?? 0) === 1
-  console.log('encryptedApiKey', encryptedApiKey)
-  console.log('isEncrypted', isEncrypted)
-  console.log('safeStorage.isEncryptionAvailable()', safeStorage.isEncryptionAvailable())
 
   let apiKey = ''
   if (encryptedApiKey) {
@@ -87,9 +84,6 @@ async function callAI(prompt: string, systemPrompt: string): Promise<string> {
       apiKey = encryptedApiKey
     }
   }
-
-  console.log('apiKey', apiKey)
-  console.log('provider', provider)
 
   if (!apiKey && provider !== 'ollama') {
     throw new Error('API key is missing. Please set it in Settings.')

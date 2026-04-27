@@ -63,10 +63,13 @@ function getCurrentMonth(): string {
 }
 
 function getMonthLabel(month: string, language: string): string {
-  return new Date(`${month}-01T00:00:00`).toLocaleDateString(language === 'gu' ? 'gu-IN' : 'en-US', {
-    month: 'long',
-    year: 'numeric',
-  })
+  return new Date(`${month}-01T00:00:00`).toLocaleDateString(
+    language === 'gu' ? 'gu-IN' : 'en-US',
+    {
+      month: 'long',
+      year: 'numeric',
+    },
+  )
 }
 
 function buildGoalSlots(counts: {
@@ -515,7 +518,9 @@ export default function Goals(): React.JSX.Element {
               >
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2 min-w-0">
-                    <span className={`${TYPE_BADGE[goal.type]} shrink-0`}>{goalTypeLabel(goal.type)}</span>
+                    <span className={`${TYPE_BADGE[goal.type]} shrink-0`}>
+                      {goalTypeLabel(goal.type)}
+                    </span>
                     <span className="text-sm text-[var(--text-primary)] font-medium truncate">
                       {goal.title}
                     </span>

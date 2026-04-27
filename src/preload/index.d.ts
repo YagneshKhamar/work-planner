@@ -86,6 +86,7 @@ export interface IElectronAPI {
       }[]
     >
     updateProof: (taskId: string, proof: string) => Promise<{ success: boolean }>
+    markReplanUsed: (date: string) => Promise<{ success: boolean }>
   }
   reports: {
     week: (endDate: string) => Promise<{
@@ -104,6 +105,8 @@ export interface IElectronAPI {
       tasks_missed: number
     } | null>
     year: (year: string) => Promise<{
+      fy_label: string
+      fy_start: number
       days: {
         date: string
         execution_score: number
@@ -155,6 +158,11 @@ export interface IElectronAPI {
       csv: string
       filename: string
     }>
+    missedPatterns: (
+      fromDate: string,
+      toDate: string,
+      minCount: number,
+    ) => Promise<{ title: string; miss_count: number }[]>
   }
   sales: {
     getMonthlyTargets: (filters: { fiscalYearStart: number; year: number }) => Promise<

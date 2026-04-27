@@ -54,7 +54,7 @@ export default function DailyReport(): React.JSX.Element {
     load()
   }, [])
 
-  const scorableTasks = todayTasks.filter((t) => t.status !== 'dropped')
+  const scorableTasks = todayTasks.filter((t) => t.status !== 'dropped' && t.status !== 'carried')
   const totalWeight = scorableTasks.reduce((sum, t) => sum + EFFORT_WEIGHT[t.effort], 0)
   const completedWeight = scorableTasks
     .filter((t) => t.status === 'completed')

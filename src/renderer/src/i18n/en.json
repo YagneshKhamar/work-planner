@@ -358,6 +358,7 @@
     "followupFailed": "Failed to schedule follow-up.",
     "generateTargetsFailed": "Failed to generate monthly targets.",
     "targetsSalesRequired": "Yearly sales target is required.",
-    "exportCsvFailed": "Failed to export tasks CSV."
+    "exportCsvFailed": "Failed to export tasks CSV.",
+    "replanFailed": "Failed to replan today."
   }
 }

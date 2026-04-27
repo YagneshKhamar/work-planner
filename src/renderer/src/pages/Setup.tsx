@@ -163,10 +163,10 @@ export default function Setup(): React.JSX.Element {
           <p className="font-mono text-xs tracking-widest text-[var(--text-muted)] uppercase mb-1">
             Execd
           </p>
-          <h1 className="text-xl font-semibold text-[var(--text-primary)]">{t('settings.title')}</h1>
-          <p className="text-sm text-[var(--text-secondary)] mt-1">
-            {t('settings.subtitle')}
-          </p>
+          <h1 className="text-xl font-semibold text-[var(--text-primary)]">
+            {t('settings.title')}
+          </h1>
+          <p className="text-sm text-[var(--text-secondary)] mt-1">{t('settings.subtitle')}</p>
         </div>
 
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
@@ -208,7 +208,9 @@ export default function Setup(): React.JSX.Element {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <p className="text-xs text-[var(--text-secondary)] mb-1">{t('settings.workingHours')}</p>
+                  <p className="text-xs text-[var(--text-secondary)] mb-1">
+                    {t('settings.workingHours')}
+                  </p>
                   <div className="flex items-center gap-2">
                     <input
                       type="time"
@@ -227,7 +229,9 @@ export default function Setup(): React.JSX.Element {
                 </div>
 
                 <div>
-                  <p className="text-xs text-[var(--text-secondary)] mb-1">{t('settings.breakTime')}</p>
+                  <p className="text-xs text-[var(--text-secondary)] mb-1">
+                    {t('settings.breakTime')}
+                  </p>
                   <div className="flex items-center gap-2">
                     <input
                       type="time"
@@ -247,7 +251,9 @@ export default function Setup(): React.JSX.Element {
               </div>
 
               <div>
-                <p className="text-xs text-[var(--text-secondary)] mb-1.5">{t('settings.workingDays')}</p>
+                <p className="text-xs text-[var(--text-secondary)] mb-1.5">
+                  {t('settings.workingDays')}
+                </p>
                 <div className="flex gap-1.5 flex-wrap">
                   {dayOptions.map((day) => (
                     <button

@@ -127,6 +127,17 @@ export default function Today(): React.JSX.Element {
     }
   }
 
+  async function handleReplan(): Promise<void> {
+    if (!dayPlan || dayPlan.replan_used === 1) return
+    try {
+      // Delete today's non-carried, non-completed tasks and unlock the plan
+      await window.api.tasks.markReplanUsed(getToday())
+      await loadTodayData()
+    } catch {
+      error(t('toast.replanFailed'))
+    }
+  }
+
   useEffect(() => {
     async function loadSubgoalsForModal(): Promise<void> {
       if (!showAddTask) return
@@ -1138,7 +1149,7 @@ export default function Today(): React.JSX.Element {
                   Add Task Today
                 </button>
                 <button
-                  onClick={() => {}}
+                  onClick={handleReplan}
                   disabled={dayPlan?.replan_used === 1}
                   className="bg-transparent border border-[var(--border-default)] hover:border-[var(--border-active)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] font-medium py-2.5 rounded text-sm cursor-pointer transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                 >

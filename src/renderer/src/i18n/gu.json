@@ -358,6 +358,7 @@
     "followupFailed": "ફૉલો-અપ નક્કી કરી શકાયો નહીં.",
     "generateTargetsFailed": "માસિક લક્ષ્યાંક બનાવી શકાયા નહીં.",
     "targetsSalesRequired": "વાર્ષિક વેચાણ લક્ષ્યાંક જરૂરી છે.",
-    "exportCsvFailed": "CSV નિકાસ કરી શકાઈ નહીં."
+    "exportCsvFailed": "CSV નિકાસ કરી શકાઈ નહીં.",
+    "replanFailed": "આજે ફરીથી આયોજન કરવામાં નિષ્ફળ ગયા."
   }
 }

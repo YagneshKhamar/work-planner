@@ -37,7 +37,13 @@ interface MissedPattern {
 type ReportsData =
   | { kind: 'week'; days: DayLog[]; patterns: MissedPattern[] }
   | { kind: 'month'; days: DayStat[]; topMissed: MissedPattern[]; months: MonthStat[] }
-  | { kind: 'year'; days: DayStat[]; months: MonthStat[]; topMissed: MissedPattern[] }
+  | {
+      kind: 'year'
+      days: DayStat[]
+      months: MonthStat[]
+      topMissed: MissedPattern[]
+      fy_start: number
+    }
   | { kind: 'custom'; days: DayStat[] }
 
 const MONTH_NAMES = [
@@ -114,16 +120,19 @@ export default function Reports(): React.JSX.Element {
         }
 
         if (range === '1M') {
-          const [analytics, yearly] = await Promise.all([
+          const thirtyDaysAgo = new Date()
+          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 29)
+          const fromDate = thirtyDaysAgo.toISOString().slice(0, 10)
+          const [analytics, patterns] = await Promise.all([
             window.api.reports.analytics(30),
-            window.api.reports.year(currentYear),
+            window.api.reports.missedPatterns(fromDate, today, 2),
           ])
           if (!cancelled) {
             setData({
               kind: 'month',
               days: analytics.trend as DayStat[],
-              topMissed: yearly.topMissed as MissedPattern[],
-              months: yearly.months as MonthStat[],
+              topMissed: patterns as MissedPattern[],
+              months: [],
             })
           }
           return
@@ -137,6 +146,7 @@ export default function Reports(): React.JSX.Element {
               days: yearly.days as DayStat[],
               months: yearly.months as MonthStat[],
               topMissed: yearly.topMissed as MissedPattern[],
+              fy_start: yearly.fy_start ?? 1,
             })
           }
           return
@@ -201,7 +211,8 @@ export default function Reports(): React.JSX.Element {
   const missed = allDays.reduce((sum, day) => sum + Number(day.tasks_missed || 0), 0)
 
   const dayChartData = useMemo(() => {
-    if (!data || (data.kind !== 'week' && data.kind !== 'month')) return []
+    if (!data || (data.kind !== 'week' && data.kind !== 'month' && data.kind !== 'custom'))
+      return []
     return data.days.map((day) => ({
       label:
         data.kind === 'week'
@@ -369,42 +380,41 @@ export default function Reports(): React.JSX.Element {
 
         {!data || allDays.length === 0 ? (
           <div className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-xl p-8 text-center mb-6">
-            <p className="text-[var(--text-muted)] text-sm">
-              {t('reports.noData')}
-            </p>
+            <p className="text-[var(--text-muted)] text-sm">{t('reports.noData')}</p>
           </div>
         ) : (
           <>
-            {(data.kind === 'week' || data.kind === 'month') && dayChartData.length > 0 && (
-              <div className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-xl p-5 mb-6">
-                <ResponsiveContainer width="100%" height={180}>
-                  <BarChart data={dayChartData}>
-                    <XAxis
-                      dataKey="label"
-                      stroke="var(--text-muted)"
-                      fontSize={11}
-                      tickLine={false}
-                      axisLine={false}
-                    />
-                    <YAxis
-                      domain={[0, 100]}
-                      ticks={[0, 25, 50, 75, 100]}
-                      stroke="var(--text-muted)"
-                      fontSize={11}
-                      tickLine={false}
-                      axisLine={false}
-                    />
-                    <Bar dataKey="scorePercent" radius={[4, 4, 0, 0]}>
-                      {dayChartData.map((entry) => (
-                        <Cell key={entry.label} fill={scoreColor(entry.scoreRaw)} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            )}
+            {(data.kind === 'week' || data.kind === 'month' || data.kind === 'custom') &&
+              dayChartData.length > 0 && (
+                <div className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-xl p-5 mb-6">
+                  <ResponsiveContainer width="100%" height={180}>
+                    <BarChart data={dayChartData}>
+                      <XAxis
+                        dataKey="label"
+                        stroke="var(--text-muted)"
+                        fontSize={11}
+                        tickLine={false}
+                        axisLine={false}
+                      />
+                      <YAxis
+                        domain={[0, 100]}
+                        ticks={[0, 25, 50, 75, 100]}
+                        stroke="var(--text-muted)"
+                        fontSize={11}
+                        tickLine={false}
+                        axisLine={false}
+                      />
+                      <Bar dataKey="scorePercent" radius={[4, 4, 0, 0]} maxBarSize={48}>
+                        {dayChartData.map((entry) => (
+                          <Cell key={entry.label} fill={scoreColor(entry.scoreRaw)} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
 
-            {(data.kind === 'week' || data.kind === 'month') && (
+            {(data.kind === 'week' || data.kind === 'month' || data.kind === 'custom') && (
               <div className="space-y-2 mb-6">
                 {allDays.map((day) => {
                   const pct = Math.round(day.execution_score * 100)
@@ -444,46 +454,56 @@ export default function Reports(): React.JSX.Element {
               </div>
             )}
 
-            {data.kind === 'year' && (
-              <div className="mb-6">
-                <h2 className="font-mono text-xs text-[var(--text-muted)] uppercase tracking-widest mb-3">
-                  MONTHLY BREAKDOWN
-                </h2>
-                <div>
-                  {MONTH_NAMES.map((name, index) => {
-                    const stat = monthMap.get(index)
-                    const scorePct = stat ? Math.round(Number(stat.avg_score || 0) * 100) : 0
-                    return (
-                      <div key={name} className="flex items-center gap-3 py-2">
-                        <span className="font-mono text-xs text-[var(--text-secondary)] w-8 shrink-0">
-                          {name}
-                        </span>
-                        <div className="flex-1 h-2 bg-[var(--border-subtle)] rounded-full overflow-hidden relative">
-                          {stat && (
-                            <div
-                              className="h-full rounded-full"
+            {data.kind === 'year' &&
+              (() => {
+                const fyStart = data.fy_start ?? 1
+                const orderedMonths = Array.from({ length: 12 }, (_, i) => {
+                  const monthIndex = (fyStart - 1 + i) % 12
+                  return { name: MONTH_NAMES[monthIndex], index: monthIndex }
+                })
+                return (
+                  <div className="mb-6">
+                    <h2 className="font-mono text-xs text-[var(--text-muted)] uppercase tracking-widest mb-3">
+                      MONTHLY BREAKDOWN
+                    </h2>
+                    <div>
+                      {orderedMonths.map(({ name, index }) => {
+                        const stat = monthMap.get(index)
+                        const scorePct = stat ? Math.round(Number(stat.avg_score || 0) * 100) : 0
+                        return (
+                          <div key={name} className="flex items-center gap-3 py-2">
+                            <span className="font-mono text-xs text-[var(--text-secondary)] w-8 shrink-0">
+                              {name}
+                            </span>
+                            <div className="flex-1 h-2 bg-[var(--border-subtle)] rounded-full overflow-hidden relative">
+                              {stat && (
+                                <div
+                                  className="h-full rounded-full"
+                                  style={{
+                                    width: `${scorePct}%`,
+                                    backgroundColor: scoreColor(scorePct / 100),
+                                  }}
+                                />
+                              )}
+                            </div>
+                            <span
+                              className="font-mono text-xs w-10 text-right"
                               style={{
-                                width: `${scorePct}%`,
-                                backgroundColor: scoreColor(scorePct / 100),
+                                color: stat ? scoreColor(scorePct / 100) : 'var(--text-muted)',
                               }}
-                            />
-                          )}
-                        </div>
-                        <span
-                          className="font-mono text-xs w-10 text-right"
-                          style={{ color: stat ? scoreColor(scorePct / 100) : 'var(--text-muted)' }}
-                        >
-                          {stat ? `${scorePct}%` : '—'}
-                        </span>
-                        <span className="font-mono text-[10px] text-[var(--text-muted)] w-14 text-right">
-                          {stat ? `${Number(stat.days_logged)} days` : '—'}
-                        </span>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
+                            >
+                              {stat ? `${scorePct}%` : '—'}
+                            </span>
+                            <span className="font-mono text-[10px] text-[var(--text-muted)] w-14 text-right">
+                              {stat ? `${Number(stat.days_logged)} days` : '—'}
+                            </span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )
+              })()}
 
             {recurringSkips.length > 0 && (
               <div className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded p-5 mb-6">

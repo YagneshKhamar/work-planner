@@ -11,7 +11,7 @@ import { registerConfigHandlers } from './ipc/config.ipc'
 import { registerGoalsHandlers } from './ipc/goals.ipc'
 import { registerReportsHandlers } from './ipc/reports.ipc'
 import { registerSalesHandlers } from './ipc/sales.ipc'
-import { registerTasksHandlers } from './ipc/tasks.ipc'
+import { registerTasksHandlers, runEndOfDay } from './ipc/tasks.ipc'
 import { registerTeamHandlers } from './ipc/team.ipc'
 
 let mainWindow: BrowserWindow | null = null
@@ -223,7 +223,40 @@ function fireTaskCheckNotification(): void {
   }
 }
 
-app.whenReady().then(() => {
+async function backfillMissingDayLogs(): Promise<void> {
+  try {
+    const db = getDatabase()
+    const today = new Date().toISOString().slice(0, 10)
+
+    const dates = db.prepare(`
+      SELECT DISTINCT scheduled_date as date
+      FROM tasks
+      WHERE scheduled_date < ?
+        AND scheduled_date NOT IN (SELECT date FROM day_logs)
+        AND status NOT IN ('dropped', 'carried')
+      ORDER BY scheduled_date ASC
+    `).all(today) as { date: string }[]
+
+    if (dates.length === 0) return
+
+    console.log(`[startup] Backfilling ${dates.length} missing day log(s)...`)
+
+    for (const { date } of dates) {
+      try {
+        await runEndOfDay(date, true)
+        console.log(`[startup] Backfilled: ${date}`)
+      } catch (err) {
+        console.error(`[startup] Failed to backfill ${date}:`, err)
+      }
+    }
+
+    console.log(`[startup] Backfill complete`)
+  } catch (err) {
+    console.error('[startup] Backfill error:', err)
+  }
+}
+
+app.whenReady().then(async () => {
   electronApp.setAppUserModelId('com.execd')
 
   autoUpdater.logger = log
@@ -282,6 +315,8 @@ app.whenReady().then(() => {
   createTray()
 
   overlayWindow = createOverlayWindow()
+
+  await backfillMissingDayLogs()
 
   autoUpdater.on('checking-for-update', () => {
     mainWindow?.webContents.send('updater:status', {

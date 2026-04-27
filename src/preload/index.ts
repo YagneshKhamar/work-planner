@@ -58,6 +58,7 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.invoke('tasks:get-history', filters),
     updateProof: (taskId: string, proof: string) =>
       ipcRenderer.invoke('tasks:update-proof', taskId, proof),
+    markReplanUsed: (date: string) => ipcRenderer.invoke('tasks:mark-replan-used', date),
   },
   reports: {
     week: (endDate: string) => ipcRenderer.invoke('reports:week', endDate),
@@ -68,6 +69,8 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.invoke('reports:export-tasks-csv', filters),
     exportSummaryCsv: (filters: { year?: string }) =>
       ipcRenderer.invoke('reports:export-summary-csv', filters),
+    missedPatterns: (fromDate: string, toDate: string, minCount: number) =>
+      ipcRenderer.invoke('reports:missed-patterns', fromDate, toDate, minCount),
   },
   sales: {
     getMonthlyTargets: (filters: { fiscalYearStart: number; year: number }) =>
