@@ -154,21 +154,24 @@ export function registerTasksHandlers(): void {
         scheduled_time_slot: string
         status: string
       }[],
+      replace = false,
     ) => {
       const db = getDatabase()
 
-      // Delete existing pending tasks for the dates being saved — prevent duplicates on regenerate
-      const dates = [
-        ...new Set((tasks as { scheduled_date: string }[]).map((t) => t.scheduled_date)),
-      ]
-      const deletePending = db.prepare(
-        `DELETE FROM tasks WHERE scheduled_date = ? AND status = 'pending'`,
-      )
-      db.transaction(() => {
+      if (replace) {
+        const dates = [...new Set(tasks.map((t) => t.scheduled_date))]
+        const deletePending = db.prepare(
+          `DELETE FROM tasks 
+           WHERE scheduled_date = ? 
+           AND status = 'pending' 
+           AND (carried_over_from IS NULL OR carried_over_from = '')`,
+          )
+        db.transaction(() => {
         for (const date of dates) {
           deletePending.run(date)
         }
-      })()
+        })()
+      }
 
       const insert = db.prepare(`
       INSERT INTO tasks (

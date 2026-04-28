@@ -43,7 +43,7 @@ nsis:
   allowToChangeInstallationDirectory: true
 
 mac:
-  icon: resources/icon.png
+  icon: resources/icon.icns
   entitlementsInherit: build/entitlements.mac.plist
   hardenedRuntime: true
   gatekeeperAssess: false
@@ -56,8 +56,7 @@ mac:
   target:
     - target: dmg
       arch:
-        - x64
-        - arm64
+        - universal
 
 dmg:
   artifactName: Execd-${version}.dmg

@@ -189,12 +189,15 @@ export default function Today(): React.JSX.Element {
       setDayPlan(plan)
       setTasks(todayTasks)
       const dayLog = await window.api.reports.dayLog(getToday())
-      if (dayLog && dayLog.execution_score !== undefined) {
+      if (dayLog && dayLog.execution_score !== undefined && plan?.locked === 1) {
         setDayEnded(true)
         setEndDayResult({
           score: Number(dayLog.execution_score),
           feedback: String(dayLog.ai_feedback ?? ''),
         })
+      } else {
+        setDayEnded(false)
+        setEndDayResult(null)
       }
       const initialNotes: Record<string, string> = {}
       todayTasks.forEach((t) => {
@@ -344,13 +347,21 @@ export default function Today(): React.JSX.Element {
         return
       }
 
-      const generated = result.data as {
-        title: string
-        effort: string
-        proof_type: string
-        subgoal_id: string
-        scheduled_time_slot: string
-      }[]
+      const generated = Array.isArray(result.data)
+        ? (result.data as {
+            title: string
+            effort: string
+            proof_type: string
+            subgoal_id: string
+            scheduled_time_slot: string
+          }[])
+        : []
+
+      if (generated.length === 0) {
+        error(t('toast.generateFailed'))
+        setGenerating(false)
+        return
+      }
 
       await window.api.tasks.saveDayPlan({
         date: getToday(),
@@ -363,6 +374,7 @@ export default function Today(): React.JSX.Element {
           scheduled_date: getToday(),
           status: 'pending',
         })),
+        true,
       )
 
       await loadTodayData()
@@ -429,13 +441,21 @@ export default function Today(): React.JSX.Element {
         return
       }
 
-      const generated = result.data as {
-        title: string
-        effort: string
-        proof_type: string
-        subgoal_id: string
-        scheduled_time_slot: string
-      }[]
+      const generated = Array.isArray(result.data)
+        ? (result.data as {
+            title: string
+            effort: string
+            proof_type: string
+            subgoal_id: string
+            scheduled_time_slot: string
+          }[])
+        : []
+
+      if (generated.length === 0) {
+        error(t('toast.generateFailed'))
+        setGeneratingTomorrow(false)
+        return
+      }
 
       await window.api.tasks.saveDayPlan({
         date: getTomorrow(),
@@ -448,6 +468,7 @@ export default function Today(): React.JSX.Element {
           scheduled_date: getTomorrow(),
           status: 'pending',
         })),
+        true,
       )
 
       success(t('toast.tomorrowGenerated'))
