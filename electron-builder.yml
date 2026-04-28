@@ -48,10 +48,11 @@ mac:
   hardenedRuntime: true
   gatekeeperAssess: false
   notarize: true
+  x64ArchFiles: '**/better_sqlite3.node'
   extendInfo:
     - NSCameraUsageDescription: Application requests access to the device's camera.
     - NSMicrophoneUsageDescription: Application requests access to the device's microphone.
-    - NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
+    - NSDocumentsFolderUsageDescription: Application requests access to the user's Downloads folder.
     - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
   target:
     - target: dmg
