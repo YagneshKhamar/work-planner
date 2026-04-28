@@ -41,7 +41,8 @@ contextBridge.exposeInMainWorld('api', {
     getByDate: (date: string) => ipcRenderer.invoke('tasks:get-by-date', date),
     getDayPlan: (date: string) => ipcRenderer.invoke('tasks:get-day-plan', date),
     saveDayPlan: (data: unknown) => ipcRenderer.invoke('tasks:save-day-plan', data),
-    saveTasks: (tasks: unknown) => ipcRenderer.invoke('tasks:save-tasks', tasks),
+    saveTasks: (tasks: unknown, replace?: boolean) =>
+      ipcRenderer.invoke('tasks:save-tasks', tasks, replace ?? false),
     lockDayPlan: (date: string) => ipcRenderer.invoke('tasks:lock-day-plan', date),
     completeTask: (id: string, proof: string | null) =>
       ipcRenderer.invoke('tasks:complete', id, proof),

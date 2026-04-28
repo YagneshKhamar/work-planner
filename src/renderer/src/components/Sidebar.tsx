@@ -35,50 +35,53 @@ export default function Sidebar(): React.JSX.Element {
   return (
     <aside
       style={{ width: 200, minWidth: 200 }}
-      className="h-screen flex flex-col bg-[var(--bg-surface)] border-r border-[var(--border-subtle)] shrink-0"
+      className="flex flex-col h-full bg-[var(--bg-surface)] border-r border-[var(--border-subtle)] shrink-0"
     >
-      <div className="px-5 pt-6 pb-4">
+      <div className="shrink-0 px-5 pt-6 pb-4">
         <span className="font-mono text-xs font-semibold tracking-widest text-[var(--text-muted)] uppercase">
           Execd
         </span>
       </div>
 
-      <nav className="flex-1 px-3 space-y-0.5">
-        {NAV_ITEMS.map(({ icon: Icon, label, to }) => (
-          <NavLink
-            key={to}
-            to={to}
-            className={({ isActive }) =>
-              `flex items-center gap-2.5 px-3 py-2 rounded text-sm cursor-pointer transition-colors no-underline ${
-                isActive
-                  ? 'bg-[var(--bg-elevated)] text-[var(--text-primary)] border border-[var(--border-default)]'
-                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] border border-transparent'
-              }`
-            }
-          >
-            <Icon className="w-4 h-4 shrink-0" />
-            <span>{label}</span>
-          </NavLink>
-        ))}
-      </nav>
-
-      <div className="px-3 pb-5">
-        <div className="mx-3 my-2 border-t border-[var(--border-subtle)]" />
-        <p className="px-3 py-1 text-[9px] font-mono text-[var(--text-secondary)] uppercase tracking-widest">
-          {t('nav.comingSoon')}
-        </p>
-        {COMING_SOON.map((item) => (
-          <div
-            key={item.label}
-            className="flex items-center gap-2.5 px-3 py-2 rounded text-sm text-[var(--text-secondary)] border border-transparent opacity-70 cursor-not-allowed"
-          >
-            <item.icon className="w-4 h-4 shrink-0" />
-            <span>{item.label}</span>
-            <span className="ml-auto text-[9px] font-mono text-[var(--text-secondary)] bg-[var(--bg-hover)] px-1.5 py-0.5 rounded">
-              soon
-            </span>
-          </div>
-        ))}
+      <div className="flex-1 overflow-y-auto py-2 px-2">
+        <nav className="space-y-0.5">
+          {NAV_ITEMS.map(({ icon: Icon, label, to }) => (
+            <NavLink
+              key={to}
+              to={to}
+              className={({ isActive }) =>
+                `flex items-center gap-2.5 px-3 py-2 rounded text-sm cursor-pointer transition-colors no-underline ${
+                  isActive
+                    ? 'bg-[var(--bg-elevated)] text-[var(--text-primary)] border border-[var(--border-default)]'
+                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] border border-transparent'
+                }`
+              }
+            >
+              <Icon className="w-4 h-4 shrink-0" />
+              <span>{label}</span>
+            </NavLink>
+          ))}
+        </nav>
+        <div className="px-1 pt-2 pb-3">
+          <div className="mx-3 my-2 border-t border-[var(--border-subtle)]" />
+          <p className="px-3 py-1 text-[9px] font-mono text-[var(--text-secondary)] uppercase tracking-widest">
+            {t('nav.comingSoon')}
+          </p>
+          {COMING_SOON.map((item) => (
+            <div
+              key={item.label}
+              className="flex items-center gap-2.5 px-3 py-2 rounded text-sm text-[var(--text-secondary)] border border-transparent opacity-70 cursor-not-allowed"
+            >
+              <item.icon className="w-4 h-4 shrink-0" />
+              <span>{item.label}</span>
+              <span className="ml-auto text-[9px] font-mono text-[var(--text-secondary)] bg-[var(--bg-hover)] px-1.5 py-0.5 rounded">
+                soon
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="shrink-0 px-2 pb-3 pt-2 border-t border-[var(--border-subtle)]">
         <NavLink
           to="/settings"
           className={({ isActive }) =>

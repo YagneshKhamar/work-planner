@@ -53,7 +53,7 @@ export interface IElectronAPI {
     getByDate: (date: string) => Promise<unknown[]>
     getDayPlan: (date: string) => Promise<unknown>
     saveDayPlan: (data: unknown) => Promise<{ success: boolean }>
-    saveTasks: (tasks: unknown) => Promise<{ success: boolean }>
+    saveTasks: (tasks: unknown, replace?: boolean) => Promise<{ success: boolean }>
     lockDayPlan: (date: string) => Promise<{ success: boolean }>
     completeTask: (id: string, proof: string | null) => Promise<{ success: boolean }>
     uncompleteTask: (id: string) => Promise<{ success: boolean }>
