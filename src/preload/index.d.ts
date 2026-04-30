@@ -41,8 +41,13 @@ export interface IElectronAPI {
       yearlyTarget: number
       collectionTarget: number | null
       businessType: string
+      businessDescription?: string
       fiscalYearStart: number
       year: number
+      currentMonth?: string
+      daysRemainingInCurrentMonth?: number
+      salesTargetUnit?: 'amount' | 'units'
+      salesTargetUnitLabel?: string
     }) => Promise<{
       success: boolean
       data?: { month: string; sales_target: number; collection_target: number }[]
@@ -217,6 +222,8 @@ export interface IElectronAPI {
       business_name: string
       business_type: string
       business_description: string
+      sales_target_unit?: string
+      sales_target_unit_label?: string
       monthly_sales_target: number | null
       collection_target: number | null
       primary_activities: string[]
@@ -228,6 +235,8 @@ export interface IElectronAPI {
       business_name: string
       business_type: string
       business_description?: string
+      sales_target_unit?: string
+      sales_target_unit_label?: string
       monthly_sales_target?: number | null
       collection_target?: number | null
       primary_activities: string[]

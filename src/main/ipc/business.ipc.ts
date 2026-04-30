@@ -24,6 +24,8 @@ export function registerBusinessHandlers(): void {
       business_name: String(row.business_name ?? ''),
       business_type: String(row.business_type ?? 'other'),
       business_description: String(row.business_description ?? ''),
+      sales_target_unit: String(row.sales_target_unit ?? 'amount'),
+      sales_target_unit_label: String(row.sales_target_unit_label ?? ''),
       monthly_sales_target:
         row.monthly_sales_target === null || row.monthly_sales_target === undefined
           ? null
@@ -54,6 +56,8 @@ export function registerBusinessHandlers(): void {
         business_name: string
         business_type: string
         business_description?: string
+        sales_target_unit?: string
+        sales_target_unit_label?: string
         monthly_sales_target?: number | null
         collection_target?: number | null
         primary_activities: string[]
@@ -74,6 +78,8 @@ export function registerBusinessHandlers(): void {
             business_name = ?,
             business_type = ?,
             business_description = ?,
+            sales_target_unit = ?,
+            sales_target_unit_label = ?,
             monthly_sales_target = ?,
             collection_target = ?,
             primary_activities = ?,
@@ -87,6 +93,8 @@ export function registerBusinessHandlers(): void {
           data.business_name,
           data.business_type,
           data.business_description ?? '',
+          data.sales_target_unit ?? 'amount',
+          data.sales_target_unit_label ?? '',
           data.monthly_sales_target ?? null,
           data.collection_target ?? null,
           JSON.stringify(data.primary_activities),
@@ -102,18 +110,22 @@ export function registerBusinessHandlers(): void {
             business_name,
             business_type,
             business_description,
+            sales_target_unit,
+            sales_target_unit_label,
             monthly_sales_target,
             collection_target,
             primary_activities,
             departments,
             team_size,
             language
-          ) VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ) VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `,
         ).run(
           data.business_name,
           data.business_type,
           data.business_description ?? '',
+          data.sales_target_unit ?? 'amount',
+          data.sales_target_unit_label ?? '',
           data.monthly_sales_target ?? null,
           data.collection_target ?? null,
           JSON.stringify(data.primary_activities),

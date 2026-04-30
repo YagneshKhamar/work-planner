@@ -45,6 +45,8 @@ export default function Business({ isSetup = false }: BusinessProps): React.JSX.
   const [otherBusinessType, setOtherBusinessType] = useState('')
   const [monthlySalesTarget, setMonthlySalesTarget] = useState('')
   const [collectionTarget, setCollectionTarget] = useState('')
+  const [salesTargetUnit, setSalesTargetUnit] = useState<'amount' | 'units'>('amount')
+  const [salesTargetUnitLabel, setSalesTargetUnitLabel] = useState('')
   const [primaryActivities, setPrimaryActivities] = useState<string[]>([])
   const [departments, setDepartments] = useState<string[]>([])
   const [newDepartment, setNewDepartment] = useState('')
@@ -54,6 +56,7 @@ export default function Business({ isSetup = false }: BusinessProps): React.JSX.
   const [monthlyTargets, setMonthlyTargets] = useState<
     { year_month: string; sales_target: number; collection_target: number }[]
   >([])
+  const [daysRemainingWarning, setDaysRemainingWarning] = useState<number | null>(null)
   const [generatingTargets, setGeneratingTargets] = useState(false)
   const [targetsGenerated, setTargetsGenerated] = useState(false)
   const [savingTargets, setSavingTargets] = useState(false)
@@ -88,6 +91,14 @@ export default function Business({ isSetup = false }: BusinessProps): React.JSX.
               ? ''
               : String(profile.collection_target),
           )
+          setSalesTargetUnit(
+            profile.sales_target_unit === 'amount'
+              ? 'amount'
+              : profile.sales_target_unit === 'units' || profile.sales_target_unit === 'custom'
+                ? 'units'
+                : 'amount',
+          )
+          setSalesTargetUnitLabel(String(profile.sales_target_unit_label || ''))
           setPrimaryActivities(
             Array.isArray(profile.primary_activities) ? profile.primary_activities : [],
           )
@@ -133,14 +144,25 @@ export default function Business({ isSetup = false }: BusinessProps): React.JSX.
       return
     }
 
+    const today = new Date()
+    const currentMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
+    const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate()
+    const daysRemaining = lastDay - today.getDate() + 1
+    setDaysRemainingWarning(daysRemaining < 15 ? daysRemaining : null)
+
     setGeneratingTargets(true)
     try {
       const result = await window.api.ai.generateMonthlyTargets({
         yearlyTarget: Number(monthlySalesTarget),
         collectionTarget: collectionTarget ? Number(collectionTarget) : null,
         businessType,
+        businessDescription,
         fiscalYearStart,
         year: currentYear,
+        currentMonth,
+        daysRemainingInCurrentMonth: daysRemaining,
+        salesTargetUnit,
+        salesTargetUnitLabel,
       })
 
       if (!result.success || !result.data) {
@@ -191,6 +213,8 @@ export default function Business({ isSetup = false }: BusinessProps): React.JSX.
         business_name: trimmedName,
         business_type: savedBusinessType,
         business_description: businessDescription,
+        sales_target_unit: salesTargetUnit,
+        sales_target_unit_label: salesTargetUnitLabel,
         monthly_sales_target: monthlySalesTarget ? Number(monthlySalesTarget) : null,
         collection_target: collectionTarget ? Number(collectionTarget) : null,
         primary_activities: primaryActivities,
@@ -233,6 +257,7 @@ export default function Business({ isSetup = false }: BusinessProps): React.JSX.
       : targetDiffRatio < 0.05
         ? 'text-[var(--accent-yellow)]'
         : 'text-[var(--accent-red)]'
+  const activeUnitLabel = salesTargetUnitLabel.trim() || 'units'
 
   const formContent = (
     <div className={isSetup ? 'space-y-4' : 'grid grid-cols-1 md:grid-cols-2 gap-4'}>
@@ -412,47 +437,96 @@ export default function Business({ isSetup = false }: BusinessProps): React.JSX.
       <section className={`${cardClass} ${isSetup ? '' : 'md:col-span-2'}`}>
         <label className={sectionLabelClass}>{t('business.targetsSection')}</label>
         <div className="space-y-3">
+          <div>
+            <p className="text-xs text-[var(--text-secondary)] mb-2">Target Unit</p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setSalesTargetUnit('amount')}
+                className={`px-3 py-1.5 rounded text-sm border transition-colors cursor-pointer ${salesTargetUnit === 'amount'
+                  ? 'bg-[var(--bg-surface)] border-[var(--border-active)] text-[var(--text-primary)]'
+                  : 'bg-[var(--bg-elevated)] border-[var(--border-default)] text-[var(--text-secondary)] hover:border-[var(--border-active)]'
+                  }`}
+              >
+                ₹ Amount
+              </button>
+              <button
+                type="button"
+                onClick={() => setSalesTargetUnit('units')}
+                className={`px-3 py-1.5 rounded text-sm border transition-colors cursor-pointer ${salesTargetUnit === 'units'
+                  ? 'bg-[var(--bg-surface)] border-[var(--border-active)] text-[var(--text-primary)]'
+                  : 'bg-[var(--bg-elevated)] border-[var(--border-default)] text-[var(--text-secondary)] hover:border-[var(--border-active)]'
+                  }`}
+              >
+                Units
+              </button>
+            </div>
+            {salesTargetUnit !== 'amount' && (
+              <input
+                type="text"
+                value={salesTargetUnitLabel}
+                onChange={(e) => setSalesTargetUnitLabel(e.target.value)}
+                placeholder="e.g. houses, flats, clients, orders"
+                className="mt-2 w-full bg-[var(--bg-base)] border border-[var(--border-default)] rounded px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none focus:border-[var(--accent-blue)] transition-colors"
+              />
+            )}
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <p className="text-xs text-[var(--text-secondary)] mb-1">
-                {t('business.yearlySalesTarget')}
+                {salesTargetUnit === 'amount' ? t('business.yearlySalesTarget') : 'Yearly Target'}
               </p>
               <div className="flex items-center gap-2">
-                <span className="text-sm text-[var(--text-muted)] font-mono">₹</span>
+                {salesTargetUnit === 'amount' && (
+                  <span className="text-sm text-[var(--text-muted)] font-mono">₹</span>
+                )}
                 <input
                   type="number"
                   value={monthlySalesTarget}
                   onChange={(e) => setMonthlySalesTarget(e.target.value)}
-                  placeholder="0"
+                  placeholder={
+                    salesTargetUnit === 'amount'
+                      ? 'e.g. 12000000'
+                      : 'e.g. 50'
+                  }
                   className={inputClass}
                 />
               </div>
             </div>
-            <div>
-              <p className="text-xs text-[var(--text-secondary)] mb-1">
-                {t('business.yearlyCollectionTarget')}
-              </p>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-[var(--text-muted)] font-mono">₹</span>
-                <input
-                  type="number"
-                  value={collectionTarget}
-                  onChange={(e) => setCollectionTarget(e.target.value)}
-                  placeholder="0"
-                  className={inputClass}
-                />
+            {salesTargetUnit === 'amount' && (
+              <div>
+                <p className="text-xs text-[var(--text-secondary)] mb-1">
+                  {t('business.yearlyCollectionTarget')}
+                </p>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-[var(--text-muted)] font-mono">₹</span>
+                  <input
+                    type="number"
+                    value={collectionTarget}
+                    onChange={(e) => setCollectionTarget(e.target.value)}
+                    placeholder="0"
+                    className={inputClass}
+                  />
+                </div>
               </div>
-            </div>
+            )}
           </div>
           {monthlySalesTarget && (
-            <button
-              type="button"
-              onClick={generateTargets}
-              disabled={generatingTargets}
-              className="w-full bg-transparent border border-[var(--border-default)] text-[var(--text-secondary)] hover:border-[var(--border-active)] hover:text-[var(--text-primary)] text-sm py-2.5 px-4 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              {generatingTargets ? t('business.generating') : t('business.generateMonthlyPlan')}
-            </button>
+            <>
+              {daysRemainingWarning !== null && (
+                <div className="w-full border border-[var(--accent-yellow)]/40 bg-[var(--accent-yellow)]/10 text-[var(--accent-yellow)] rounded px-3 py-2 text-sm">
+                  {daysRemainingWarning} days remaining in this month - target will be prorated.
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={generateTargets}
+                disabled={generatingTargets}
+                className="w-full bg-transparent border border-[var(--border-default)] text-[var(--text-secondary)] hover:border-[var(--border-active)] hover:text-[var(--text-primary)] text-sm py-2.5 px-4 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {generatingTargets ? t('business.generating') : t('business.generateMonthlyPlan')}
+              </button>
+            </>
           )}
 
           {targetsGenerated && monthlyTargets.length > 0 && (
@@ -462,7 +536,9 @@ export default function Business({ isSetup = false }: BusinessProps): React.JSX.
                   {t('business.monthlyBreakdown')}
                 </p>
                 <p className={`text-sm font-mono ${totalColorClass}`}>
-                  {t('business.total')}: ₹{monthlySalesTotal}
+                  {salesTargetUnit === 'amount'
+                    ? `${t('business.total')}: ₹${monthlySalesTotal}`
+                    : `${t('business.total')}: ${monthlySalesTotal} ${activeUnitLabel}`}
                 </p>
               </div>
 
@@ -481,6 +557,9 @@ export default function Business({ isSetup = false }: BusinessProps): React.JSX.
                           {item.year_month}
                         </p>
                       </div>
+                      <span className="text-sm text-[var(--text-muted)] font-mono w-12 shrink-0">
+                        {salesTargetUnit === 'amount' ? '₹' : activeUnitLabel}
+                      </span>
                       <input
                         type="number"
                         value={item.sales_target}
@@ -494,21 +573,30 @@ export default function Business({ isSetup = false }: BusinessProps): React.JSX.
                         }}
                         className={inputClass}
                       />
-                      <input
-                        type="number"
-                        value={item.collection_target}
-                        onChange={(e) => {
-                          const value = Number(e.target.value || 0)
-                          setMonthlyTargets((prev) =>
-                            prev.map((target, targetIndex) =>
-                              targetIndex === index
-                                ? { ...target, collection_target: value }
-                                : target,
-                            ),
-                          )
-                        }}
-                        className={inputClass}
-                      />
+                      {salesTargetUnit !== 'amount' ? (
+                        <span className="text-xs text-[var(--text-muted)] w-20 shrink-0">{activeUnitLabel}</span>
+                      ) : (
+                        <>
+                          <span className="text-sm text-[var(--text-muted)] font-mono w-12 shrink-0">
+                            {salesTargetUnit === 'amount' ? '₹' : activeUnitLabel}
+                          </span>
+                          <input
+                            type="number"
+                            value={item.collection_target}
+                            onChange={(e) => {
+                              const value = Number(e.target.value || 0)
+                              setMonthlyTargets((prev) =>
+                                prev.map((target, targetIndex) =>
+                                  targetIndex === index
+                                    ? { ...target, collection_target: value }
+                                    : target,
+                                ),
+                              )
+                            }}
+                            className={inputClass}
+                          />
+                        </>
+                      )}
                     </div>
                   )
                 })}

@@ -167,6 +167,15 @@ export function runInitialMigration(db: Database.Database): void {
   )
   addColumnIfMissing('api_key_is_encrypted', 'INTEGER NOT NULL DEFAULT 0')
   addColumnIfMissing('fiscal_year_start', 'INTEGER NOT NULL DEFAULT 4')
+  const addBpColumnIfMissing = (col: string, def: string) => {
+    try {
+      db.exec(`ALTER TABLE business_profile ADD COLUMN ${col} ${def}`)
+    } catch {
+      // already exists
+    }
+  }
+  addBpColumnIfMissing('sales_target_unit', "TEXT NOT NULL DEFAULT 'amount'")
+  addBpColumnIfMissing('sales_target_unit_label', "TEXT NOT NULL DEFAULT ''")
   try {
     db.exec("ALTER TABLE business_profile ADD COLUMN business_description TEXT DEFAULT ''")
   } catch {
