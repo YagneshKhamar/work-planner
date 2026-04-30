@@ -45,6 +45,9 @@ function getBusinessContext(): string {
       profile.monthly_sales_target
         ? `Yearly sales target: ₹${String(profile.monthly_sales_target)}`
         : '',
+      profile.sales_target_unit && profile.sales_target_unit !== 'amount'
+        ? `Sales target unit: ${profile.sales_target_unit === 'units' ? String(profile.sales_target_unit_label || 'units') : String(profile.sales_target_unit_label || 'units')}`
+        : '',
     ].filter(Boolean)
     const language = String(profile.language || 'en')
     const languageInstruction =
@@ -422,9 +425,30 @@ Generate the insight JSON.`
         businessType: string
         fiscalYearStart: number
         year: number
+        currentMonth?: string
+        daysRemainingInCurrentMonth?: number
+        salesTargetUnit?: 'amount' | 'units'
+        salesTargetUnitLabel?: string
+        businessDescription?: string
       },
     ) => {
-      const systemPrompt = `You are a business planning assistant.
+      const effectiveUnitLabel = String(context.salesTargetUnitLabel || '').trim() || 'units'
+      const isUnitMode = context.salesTargetUnit && context.salesTargetUnit !== 'amount'
+      const systemPrompt = isUnitMode
+        ? `You are a business planning assistant.
+Generate realistic monthly unit targets based on business type, description, and seasonal patterns.
+Respond ONLY with valid JSON array, no markdown, no explanation:
+[{"month": "YYYY-MM", "sales_target": number, "collection_target": number}]
+Rules:
+- Generate exactly 12 months starting from the fiscal year start month
+- Total of all sales_target values must equal exactly the yearlyTarget provided
+- The target is in units (${effectiveUnitLabel}), not revenue
+- Use the business type and description to determine realistic seasonal patterns for unit sales
+- For example: a CA firm tracking client count peaks during tax season (Jan-Mar) and ITR filing (Jul-Aug). A real estate firm tracking houses sold peaks post-monsoon and pre-festive season. A software firm tracking active users grows steadily with slight year-end push.
+- Analyze the specific business described and distribute units accordingly
+- collection_target: set equal to sales_target for each month (not applicable for units, but field is required)
+- Round all values to nearest whole number`
+        : `You are a business planning assistant.
 Generate realistic monthly sales targets based on business type and seasonal patterns.
 Respond ONLY with valid JSON array, no markdown, no explanation:
 [{"month": "YYYY-MM", "sales_target": number, "collection_target": number}]
@@ -439,15 +463,26 @@ Rules:
 - collection_target per month = roughly 85-90% of that month's sales_target
   (collections lag sales slightly)
 - If collectionTarget is provided, total collection must equal collectionTarget
+- If daysRemainingInCurrentMonth is provided and less than the total days in that month, prorate that month's target proportionally. For example, if 10 days remain out of 30, that month gets roughly 1/3 of its normal seasonal allocation. Adjust other months to compensate so the yearly total still matches exactly.
 - Round all values to nearest 1000`
 
+      const totalDaysInMonth = context.currentMonth
+        ? (() => {
+          const [y, m] = context.currentMonth!.split('-').map(Number)
+          return new Date(y, m, 0).getDate()
+        })()
+        : undefined
+
       const prompt = `Business type: ${context.businessType}
-Yearly sales target: ₹${context.yearlyTarget}
-Yearly collection target: ${context.collectionTarget ? '₹' + context.collectionTarget : 'not set'}
-Financial year starts: month ${context.fiscalYearStart} (1=Jan, 4=Apr)
+Business description: ${context.businessDescription || 'not provided'}
+Yearly ${isUnitMode ? `${effectiveUnitLabel} target` : 'sales target'}: ${isUnitMode ? context.yearlyTarget : `₹${context.yearlyTarget}`}
+${isUnitMode ? '' : `Yearly collection target: ${context.collectionTarget ? '₹' + context.collectionTarget : 'not set'}
+`}Financial year starts: month ${context.fiscalYearStart} (1=Jan, 4=Apr)
 Current year: ${context.year}
 Generate 12 monthly targets starting from ${context.fiscalYearStart}/${context.year}.
-For months after December, use year ${context.year + 1}.`
+For months after December, use year ${context.year + 1}.${context.currentMonth
+    ? `\nCurrent month: ${context.currentMonth}, days remaining: ${context.daysRemainingInCurrentMonth} out of ${totalDaysInMonth}`
+    : ''}`
 
       try {
         const raw = await callAI(prompt, systemPrompt)
